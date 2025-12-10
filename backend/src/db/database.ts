@@ -103,6 +103,19 @@ class Database {
       )
     `);
 
+    // Users 表（简单用户账户系统）
+    await run(`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        email TEXT UNIQUE,
+        passwordHash TEXT NOT NULL,
+        displayName TEXT,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL
+      )
+    `);
+
     // 创建索引
     await run(`CREATE INDEX IF NOT EXISTS idx_prompts_category ON prompts(category)`);
     await run(`CREATE INDEX IF NOT EXISTS idx_prompts_author ON prompts(author)`);

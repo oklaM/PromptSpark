@@ -1,18 +1,12 @@
-import axios, { AxiosInstance } from 'axios';
+import { AxiosInstance } from 'axios';
+import axiosClient from './axiosClient';
 // type Prompt is available in store if needed; removed unused import to avoid TS warnings
-
-const API_BASE_URL = '/api';
 
 class PromptService {
   private client: AxiosInstance;
 
   constructor() {
-    this.client = axios.create({
-      baseURL: API_BASE_URL,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    this.client = axiosClient as AxiosInstance;
   }
 
   // Get all prompts
@@ -62,6 +56,32 @@ class PromptService {
   // Toggle like
   async toggleLike(id: string, liked: boolean) {
     const response = await this.client.post(`/prompts/${id}/like`, { liked });
+    return response.data;
+  }
+
+  // Export prompts (format: json|csv|md)
+  async exportPrompts(ids?: string[], format: 'json' | 'csv' | 'md' = 'json') {
+    const params: any = { format };
+    if (ids && ids.length > 0) params.ids = ids.join(',');
+    const response = await this.client.get('/prompts/export', { params, responseType: format === 'json' ? 'json' : 'text' });
+    return response.data;
+  }
+
+  // Import prompts (items array)
+  async importPrompts(items: any[]) {
+    const response = await this.client.post('/prompts/import', { items });
+    return response.data;
+  }
+
+  // Bulk action: { action: 'delete'|'publish'|'unpublish', ids: string[] }
+  async bulkAction(action: string, ids: string[]) {
+    const response = await this.client.post('/prompts/bulk', { action, ids });
+    return response.data;
+  }
+
+  // Duplicate a prompt
+  async duplicatePrompt(id: string) {
+    const response = await this.client.post(`/prompts/${id}/duplicate`, {});
     return response.data;
   }
 }

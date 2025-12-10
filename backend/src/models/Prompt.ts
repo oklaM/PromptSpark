@@ -145,6 +145,10 @@ export class PromptModel {
       updateFields.push('category = ?');
       updateValues.push(data.category);
     }
+    if ((data as any).isPublic !== undefined) {
+      updateFields.push('isPublic = ?');
+      updateValues.push((data as any).isPublic ? 1 : 0);
+    }
 
     updateFields.push('updatedAt = ?');
     updateValues.push(now);
@@ -156,7 +160,14 @@ export class PromptModel {
         updateValues
       );
     }
-
+    // 更新标签（替换式）
+    if (data.tags) {
+      // Remove existing prompt_tags entries
+      await database.run(`DELETE FROM prompt_tags WHERE promptId = ?`, [id]);
+      for (const tagName of data.tags) {
+        await this.addTag(id, tagName);
+      }
+    }
     return this.getById(id) as Promise<Prompt>;
   }
 
@@ -227,5 +238,62 @@ export class PromptModel {
       `UPDATE prompts SET likes = MAX(0, likes + ?) WHERE id = ?`,
       [change, id]
     );
+  }
+
+  // 批量删除（软删除）
+  static async bulkDelete(ids: string[]): Promise<void> {
+    const now = new Date().toISOString();
+    const placeholders = ids.map(() => '?').join(',');
+    await database.run(
+      `UPDATE prompts SET deletedAt = ? WHERE id IN (${placeholders})`,
+      [now, ...ids]
+    );
+  }
+
+  // 批量更新公开状态
+  static async bulkUpdatePublish(ids: string[], isPublic: boolean): Promise<void> {
+    const val = isPublic ? 1 : 0;
+    const placeholders = ids.map(() => '?').join(',');
+    await database.run(
+      `UPDATE prompts SET isPublic = ?, updatedAt = ? WHERE id IN (${placeholders})`,
+      [val, new Date().toISOString(), ...ids]
+    );
+  }
+
+  // 复制提示词
+  static async duplicate(promptId: string, author?: string): Promise<Prompt> {
+    const prompt = await this.getById(promptId);
+    if (!prompt) throw new Error('Prompt not found');
+
+    const data: CreatePromptDTO = {
+      title: `${prompt.title} (Copy)`,
+      description: prompt.description,
+      content: prompt.content,
+      category: prompt.category,
+      author: author || prompt.author,
+      tags: prompt.tags || []
+    };
+
+    return this.create(data);
+  }
+
+  // 批量导入提示词（接收数组）
+  static async importPrompts(items: CreatePromptDTO[]): Promise<Prompt[]> {
+    const created: Prompt[] = [];
+    for (const item of items) {
+      const p = await this.create(item);
+      created.push(p);
+    }
+    return created;
+  }
+
+  // 导出提示词（根据 ids 或全部），返回纯数据数组
+  static async exportPrompts(ids?: string[]): Promise<Prompt[]> {
+    if (ids && ids.length > 0) {
+      const results = await Promise.all(ids.map(id => this.getById(id)));
+      return results.filter((p): p is Prompt => p !== null);
+    }
+    const all = await this.getAll(1, 10000);
+    return all.data;
   }
 }

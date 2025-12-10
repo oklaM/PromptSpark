@@ -3,6 +3,7 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import { database } from './db/database.js';
 import promptRoutes from './routes/promptRoutes.js';
+import authRoutes from './routes/authRoutes.js';
 import 'dotenv/config';
 
 const app: Express = express();
@@ -15,6 +16,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // API Routes
 app.use('/api', promptRoutes);
+app.use('/api/auth', authRoutes);
 
 // Health check
 app.get('/health', (req: Request, res: Response) => {
@@ -22,7 +24,7 @@ app.get('/health', (req: Request, res: Response) => {
 });
 
 // Error handling middleware
-app.use((err: any, req: Request, res: Response) => {
+app.use((err: any, req: Request, res: Response, next: any) => {
   console.error(err);
   res.status(500).json({
     success: false,

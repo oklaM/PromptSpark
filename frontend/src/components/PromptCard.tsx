@@ -1,4 +1,5 @@
 import React from 'react';
+import { Eye, Heart, Copy } from 'lucide-react';
 import { usePromptStore } from '../stores/promptStore';
 import { promptService } from '../services/promptService';
 
@@ -12,6 +13,9 @@ interface PromptCardProps {
   likes: number;
   tags: string[];
   onClick?: () => void;
+  selected?: boolean;
+  onSelect?: (id: string, selected: boolean) => void;
+  onDuplicate?: (id: string) => void;
 }
 
 export function PromptCard({
@@ -24,6 +28,9 @@ export function PromptCard({
   likes,
   tags,
   onClick,
+  selected,
+  onSelect,
+  onDuplicate,
 }: PromptCardProps) {
   const updatePrompt = usePromptStore((state) => state.updatePrompt);
   const [isLiked, setIsLiked] = React.useState(false);
@@ -41,56 +48,79 @@ export function PromptCard({
     }
   };
 
+  const handleSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+    onSelect && onSelect(id, (e.target as HTMLInputElement).checked);
+  };
+
+  const handleDuplicate = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onDuplicate) onDuplicate(id);
+  };
+
   return (
     <div
       onClick={onClick}
-      className="bg-white rounded-lg shadow hover:shadow-md transition-shadow p-4 cursor-pointer border border-gray-200"
+      className="bg-white rounded-xl shadow hover:shadow-lg transition-all p-4 cursor-pointer border border-gray-200 hover:border-blue-300 hover:scale-105 transform duration-200"
     >
-      <div className="flex justify-between items-start mb-2">
-        <h3 className="text-lg font-semibold text-gray-900 flex-1 line-clamp-2">{title}</h3>
-        <span className="ml-2 px-2 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded">
+      <div className="flex items-center justify-between mb-3">
+        <span className="px-2.5 py-1 text-xs font-semibold text-blue-700 bg-blue-50 rounded-full">
           {category || 'General'}
         </span>
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={handleSelect}
+          onClick={(e) => e.stopPropagation()}
+          className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500 cursor-pointer"
+        />
       </div>
 
+      <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-2 line-clamp-2 min-h-[2.5rem]">{title}</h3>
       <p className="text-gray-600 text-sm mb-3 line-clamp-2">{description}</p>
 
-      <div className="flex flex-wrap gap-1 mb-3">
-        {tags.slice(0, 3).map((tag) => (
+      <div className="flex flex-wrap gap-1.5 mb-4">
+        {tags.slice(0, 2).map((tag) => (
           <span
             key={tag}
-            className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700"
+            className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
           >
             #{tag}
           </span>
         ))}
-        {tags.length > 3 && (
-          <span className="text-xs text-gray-500">+{tags.length - 3}</span>
+        {tags.length > 2 && (
+          <span className="text-xs text-gray-500 px-2 py-1">+{tags.length - 2}</span>
         )}
       </div>
 
-      <div className="flex items-center justify-between text-sm text-gray-500 border-t pt-3">
-        <div className="flex items-center gap-4">
-          <span className="flex items-center gap-1">
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-              <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
-            </svg>
-            {views}
-          </span>
+      <div className="border-t border-gray-100 pt-3 space-y-3">
+        <div className="flex items-center justify-between text-xs sm:text-sm">
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1.5 text-gray-600 hover:text-gray-900 transition-colors">
+              <Eye className="w-4 h-4" />
+              <span>{views}</span>
+            </span>
+            <button
+              onClick={handleLike}
+              className={`flex items-center gap-1.5 transition-colors ${
+                isLiked ? 'text-red-500' : 'text-gray-600 hover:text-red-500'
+              }`}
+            >
+              <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
+              <span>{likes}</span>
+            </button>
+          </div>
           <button
-            onClick={handleLike}
-            className={`flex items-center gap-1 transition-colors ${
-              isLiked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'
-            }`}
+            onClick={handleDuplicate}
+            className="flex items-center gap-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-2 py-1 rounded transition-colors"
           >
-            <svg className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} viewBox="0 0 20 20">
-              <path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" />
-            </svg>
-            {likes}
+            <Copy className="w-4 h-4" />
+            <span className="hidden sm:inline">复制</span>
           </button>
         </div>
-        <span className="text-xs">by {author}</span>
+        <div className="text-xs text-gray-500 truncate">
+          by <span className="font-medium text-gray-700">{author}</span>
+        </div>
       </div>
     </div>
   );

@@ -157,4 +157,87 @@ export class PromptController {
       });
     }
   }
+
+  static async exportPrompts(req: Request, res: Response): Promise<void> {
+    try {
+      const { ids, format } = req.query;
+      const idArray = typeof ids === 'string' ? ids.split(',') : (ids as string[]) || [];
+      const prompts = await PromptModel.exportPrompts(idArray.length ? idArray : undefined);
+
+      const fmt = (format as string) || 'json';
+      if (fmt === 'csv') {
+        // build CSV
+        const header = ['id', 'title', 'description', 'content', 'category', 'author', 'isPublic', 'tags', 'createdAt', 'updatedAt'];
+        const rows = prompts.map(p => header.map(h => {
+          if (h === 'tags') return `"${(p.tags || []).join(';')}"`;
+          const v = (p as any)[h];
+          return `"${String(v ?? '')}"`;
+        }).join(','));
+        const csv = [header.join(','), ...rows].join('\n');
+        res.setHeader('Content-Type', 'text/csv');
+        res.send(csv);
+        return;
+      }
+      if (fmt === 'md' || fmt === 'markdown') {
+        const md = prompts.map(p => `## ${p.title}\n\n${p.description || ''}\n\n\`\`\`prompt\n${p.content}\n\`\`\`\n\nTags: ${(p.tags || []).join(', ')}\n\n---`).join('\n\n');
+        res.setHeader('Content-Type', 'text/markdown');
+        res.send(md);
+        return;
+      }
+
+      res.json({ success: true, data: prompts });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error instanceof Error ? error.message : 'Failed to export prompts' });
+    }
+  }
+
+  static async importPrompts(req: Request, res: Response): Promise<void> {
+    try {
+      const items = req.body.items as CreatePromptDTO[];
+      if (!items || !Array.isArray(items)) {
+        res.status(400).json({ success: false, message: 'items array required in body' });
+        return;
+      }
+      const created = await PromptModel.importPrompts(items);
+      res.status(201).json({ success: true, data: created, message: 'Imported prompts' });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error instanceof Error ? error.message : 'Failed to import prompts' });
+    }
+  }
+
+  static async bulkAction(req: Request, res: Response): Promise<void> {
+    try {
+      const { action, ids, isPublic } = req.body;
+      if (!action || !ids || !Array.isArray(ids)) {
+        res.status(400).json({ success: false, message: 'action and ids[] required' });
+        return;
+      }
+
+      if (action === 'delete') {
+        await PromptModel.bulkDelete(ids);
+      } else if (action === 'publish') {
+        await PromptModel.bulkUpdatePublish(ids, true);
+      } else if (action === 'unpublish') {
+        await PromptModel.bulkUpdatePublish(ids, false);
+      } else {
+        res.status(400).json({ success: false, message: 'unsupported action' });
+        return;
+      }
+
+      res.json({ success: true, message: 'Bulk action completed' });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error instanceof Error ? error.message : 'Failed to perform bulk action' });
+    }
+  }
+
+  static async duplicate(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { author } = req.body;
+      const dup = await PromptModel.duplicate(id, author);
+      res.status(201).json({ success: true, data: dup, message: 'Prompt duplicated' });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error instanceof Error ? error.message : 'Failed to duplicate prompt' });
+    }
+  }
 }
