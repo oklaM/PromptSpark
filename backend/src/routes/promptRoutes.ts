@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { PromptController } from '../controllers/promptController.js';
+import { PromptController } from '../controllers/promptController';
 
 const router = Router();
 

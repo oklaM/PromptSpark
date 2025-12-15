@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PromptModel, CreatePromptDTO } from '../models/Prompt.js';
+import { PromptModel, CreatePromptDTO } from '../models/Prompt';
 
 export class PromptController {
   static async create(req: Request, res: Response): Promise<void> {

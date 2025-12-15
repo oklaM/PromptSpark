@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { database } from '../db/database.js';
+import { database } from '../db/database';
 import 'dotenv/config';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'promptspark_dev_secret';

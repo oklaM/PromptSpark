@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { database } from '../db/database.js';
+import { database } from '../db/database';
 
 export interface Prompt {
   id: string;

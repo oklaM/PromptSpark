@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { promptService } from './services/promptService';
 import { ChevronLeft } from 'lucide-react';
 import { usePrompts, usePromptDetail } from './hooks/usePrompts';
 import { SearchBar } from './components/SearchBar';
@@ -51,11 +52,7 @@ function AppContent() {
   const clearSelection = () => setSelectedIds([]);
 
   const handleDuplicate = async (id: string) => {
-    // call service to duplicate and optionally refresh
-    // lightweight: just alert for now
     try {
-      // dynamic import to avoid circular issues
-      const { promptService } = await import('./services/promptService');
       await promptService.duplicatePrompt(id);
       // refresh by setting a store or reloading prompts in hook
     } catch (err) {

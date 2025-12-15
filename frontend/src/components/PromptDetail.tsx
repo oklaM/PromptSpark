@@ -1,6 +1,12 @@
-// React import not needed with automatic JSX runtime
+import { useState } from 'react';
+import { PermissionManagement } from './PermissionManagement';
+import { CommentThread } from './CommentThread';
+import { DiscussionSection } from './DiscussionSection';
+import { RatingComponent } from './RatingComponent';
+import { useAuthStore } from '../stores/authStore';
 
 interface PromptDetailProps {
+  id?: string;
   title: string;
   description: string;
   content: string;
@@ -16,6 +22,7 @@ interface PromptDetailProps {
 }
 
 export function PromptDetail({
+  id = '',
   title,
   description,
   content,
@@ -29,6 +36,10 @@ export function PromptDetail({
   onClose,
   onEdit,
 }: PromptDetailProps) {
+  const [activeTab, setActiveTab] = useState<'content' | 'comments' | 'discussions' | 'ratings' | 'permissions'>('content');
+  const { user } = useAuthStore();
+  const isOwner = user?.username === author;
+
   const handleCopyContent = () => {
     navigator.clipboard.writeText(content);
     // 可以添加提示
@@ -43,7 +54,7 @@ export function PromptDetail({
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-5xl mx-auto">
       <div className="bg-white rounded-lg shadow-lg overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6 text-white">
@@ -99,44 +110,85 @@ export function PromptDetail({
           </div>
         </div>
 
-        {/* Content */}
-        <div className="p-6">
-          <div className="mb-6">
-            <h2 className="text-lg font-semibold mb-3">提示词内容</h2>
-            <div className="relative bg-gray-50 rounded-lg p-4 border border-gray-200">
-              <pre className="text-sm text-gray-700 font-mono whitespace-pre-wrap break-words">
-                {content}
-              </pre>
-              <button
-                onClick={handleCopyContent}
-                className="absolute top-2 right-2 p-2 bg-white rounded border border-gray-300 hover:bg-gray-50 text-gray-600 hover:text-gray-900"
-                title="复制内容"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-              </button>
-            </div>
+        {/* Tabs */}
+        <div className="border-b border-gray-200">
+          <div className="flex overflow-x-auto px-6">
+            {[
+              { key: 'content', label: '📝 内容' },
+              { key: 'ratings', label: '⭐ 评分' },
+              { key: 'comments', label: '💬 评论' },
+              { key: 'discussions', label: '🗣️ 讨论' },
+              { key: 'permissions', label: '🔐 权限', show: isOwner },
+            ].map(
+              (tab) =>
+                tab.show !== false && (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key as any)}
+                    className={`px-4 py-3 font-semibold border-b-2 transition-colors whitespace-nowrap ${
+                      activeTab === tab.key
+                        ? 'border-blue-600 text-blue-600'
+                        : 'border-transparent text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                )
+            )}
           </div>
-
-          {updatedAt && (
-            <p className="text-xs text-gray-500">
-              最后更新: {formatDate(updatedAt)}
-            </p>
-          )}
         </div>
 
-        {/* Actions */}
-        {onEdit && (
-          <div className="bg-gray-50 px-6 py-4 border-t flex gap-3">
-            <button
-              onClick={onEdit}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-            >
-              编辑
-            </button>
-          </div>
-        )}
+        {/* Content */}
+        <div className="p-6">
+          {activeTab === 'content' && (
+            <div>
+              <div className="mb-6">
+                <h2 className="text-lg font-semibold mb-3">提示词内容</h2>
+                <div className="relative bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <pre className="text-sm text-gray-700 font-mono whitespace-pre-wrap break-words">
+                    {content}
+                  </pre>
+                  <button
+                    onClick={handleCopyContent}
+                    className="absolute top-2 right-2 p-2 bg-white rounded border border-gray-300 hover:bg-gray-50 text-gray-600 hover:text-gray-900"
+                    title="复制内容"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {updatedAt && (
+                <p className="text-xs text-gray-500">
+                  最后更新: {formatDate(updatedAt)}
+                </p>
+              )}
+
+              {onEdit && (
+                <div className="mt-6 pt-6 border-t">
+                  <button
+                    onClick={onEdit}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                  >
+                    编辑
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'ratings' && id && <RatingComponent promptId={id} />}
+
+          {activeTab === 'comments' && id && <CommentThread promptId={id} />}
+
+          {activeTab === 'discussions' && id && <DiscussionSection promptId={id} />}
+
+          {activeTab === 'permissions' && id && isOwner && (
+            <PermissionManagement promptId={id} isOwner={isOwner} />
+          )}
+        </div>
       </div>
     </div>
   );
