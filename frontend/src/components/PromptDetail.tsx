@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Edit, X } from 'lucide-react';
 import { PermissionManagement } from './PermissionManagement';
 import { CommentThread } from './CommentThread';
 import { DiscussionSection } from './DiscussionSection';
@@ -63,16 +64,25 @@ export function PromptDetail({
               <h1 className="text-3xl font-bold mb-2">{title}</h1>
               <p className="text-blue-100 text-lg">{description}</p>
             </div>
-            {onClose && (
-              <button
-                onClick={onClose}
-                className="text-blue-100 hover:text-white"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            )}
+            <div className="flex gap-2">
+              {onEdit && (
+                <button
+                  onClick={onEdit}
+                  className="p-2 text-blue-100 hover:text-white hover:bg-blue-600/50 rounded-full transition-colors"
+                  title="编辑"
+                >
+                  <Edit className="w-6 h-6" />
+                </button>
+              )}
+              {onClose && (
+                <button
+                  onClick={onClose}
+                  className="p-2 text-blue-100 hover:text-white hover:bg-blue-600/50 rounded-full transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2 mb-4">
@@ -164,17 +174,6 @@ export function PromptDetail({
                 <p className="text-xs text-gray-500">
                   最后更新: {formatDate(updatedAt)}
                 </p>
-              )}
-
-              {onEdit && (
-                <div className="mt-6 pt-6 border-t">
-                  <button
-                    onClick={onEdit}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-                  >
-                    编辑
-                  </button>
-                </div>
               )}
             </div>
           )}

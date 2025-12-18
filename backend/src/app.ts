@@ -4,6 +4,7 @@ import bodyParser from 'body-parser';
 import promptRoutes from './routes/promptRoutes';
 import authRoutes from './routes/authRoutes';
 import collaborationRoutes from './routes/collaborationRoutes';
+import aiRoutes from './routes/aiRoutes';
 import { database } from './db/database';
 
 const app: Express = express();
@@ -17,6 +18,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use('/api', promptRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/collaboration', collaborationRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Health check
 app.get('/health', (req: Request, res: Response) => {

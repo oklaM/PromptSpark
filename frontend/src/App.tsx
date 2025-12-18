@@ -21,6 +21,7 @@ function AppContent() {
   const [viewType, setViewType] = useState<ViewType>('list');
   const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingPrompt, setEditingPrompt] = useState<any | null>(null);
   const [showLogin, setShowLogin] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
@@ -39,8 +40,23 @@ function AppContent() {
     setSelectedPromptId(null);
   };
 
+  const handleEdit = () => {
+    if (currentPrompt) {
+      setEditingPrompt(currentPrompt);
+      setShowCreateModal(true);
+    }
+  };
+
+  const handleModalClose = () => {
+    setShowCreateModal(false);
+    setEditingPrompt(null);
+  };
+
   const handleCreateSuccess = () => {
     // 可以刷新列表
+    if (editingPrompt) {
+        // If we were editing, we might want to refresh the current detail view or just close
+    }
   };
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -136,7 +152,11 @@ function AppContent() {
             </button>
 
             {currentPrompt ? (
-              <PromptDetail {...currentPrompt} onClose={handleBack} />
+              <PromptDetail
+                {...currentPrompt}
+                onClose={handleBack}
+                onEdit={handleEdit}
+              />
             ) : (
               <div className="text-center py-12">
                 <p className="text-gray-600">加载中...</p>
@@ -146,11 +166,12 @@ function AppContent() {
         )}
       </main>
 
-      {/* Create Modal */}
+      {/* Create/Edit Modal */}
       <CreatePromptModal
         isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
+        onClose={handleModalClose}
         onSuccess={handleCreateSuccess}
+        initialData={editingPrompt}
       />
 
       {/* Login/Register/Account Modals */}

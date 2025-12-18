@@ -1,15 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { promptService } from '../services/promptService';
-import { usePromptStore } from '../stores/promptStore';
+import { aiService } from '../services/aiService';
+import { usePromptStore, Prompt } from '../stores/promptStore';
+import { Wand2 } from 'lucide-react';
 
 interface CreatePromptModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  initialData?: Prompt | null;
 }
 
-export function CreatePromptModal({ isOpen, onClose, onSuccess }: CreatePromptModalProps) {
-  const addPrompt = usePromptStore((state) => state.addPrompt);
+export function CreatePromptModal({ isOpen, onClose, onSuccess, initialData }: CreatePromptModalProps) {
+  const { addPrompt, updatePrompt } = usePromptStore();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -19,12 +22,96 @@ export function CreatePromptModal({ isOpen, onClose, onSuccess }: CreatePromptMo
     tags: '',
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        title: initialData.title,
+        description: initialData.description,
+        content: initialData.content,
+        category: initialData.category,
+        author: initialData.author,
+        tags: initialData.tags.join(', '),
+      });
+    } else {
+      setFormData({
+        title: '',
+        description: '',
+        content: '',
+        category: '',
+        author: 'Anonymous',
+        tags: '',
+      });
+    }
+  }, [initialData, isOpen]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
+
+  const handleSmartAnalyze = async (targetField?: string) => {
+    // Require at least one field to be present for context, unless generating from scratch (which we might allow later, but for now let's require something)
+    // Actually, let's allow it if user wants to generate from Title/Description
+    if (!formData.content && !formData.title && !formData.description) return;
+
+    setIsAnalyzing(true);
+    
+    try {
+      const result = await aiService.analyzeContent({
+        content: formData.content,
+        title: formData.title,
+        description: formData.description
+      }, targetField);
+      
+      setFormData(prev => {
+        const newData = { ...prev };
+        
+        if (!targetField || targetField === 'title') {
+          if (result.title) newData.title = result.title;
+        }
+        
+        if (!targetField || targetField === 'description') {
+          if (result.description) newData.description = result.description;
+        }
+
+        if (targetField === 'content' && result.content) {
+             newData.content = result.content;
+        }
+
+        if (!targetField || targetField === 'category') {
+           if (result.category) newData.category = result.category;
+        }
+        
+        if (!targetField || targetField === 'tags') {
+          const newTags = new Set(prev.tags.split(',').map(t => t.trim()).filter(Boolean));
+          result.tags?.forEach(tag => newTags.add(tag));
+          newData.tags = Array.from(newTags).join(', ');
+        }
+
+        return newData;
+      });
+    } catch (err) {
+      console.error('AI Analysis failed:', err);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const AiButton = ({ field, className = "" }: { field: string, className?: string }) => (
+    <button
+      type="button"
+      onClick={() => handleSmartAnalyze(field)}
+      disabled={isAnalyzing || (!formData.content && !formData.title && !formData.description)}
+      className={`text-purple-600 hover:text-purple-700 p-1 rounded hover:bg-purple-50 transition-colors ${className}`}
+      title={`AI 生成${field === 'title' ? '标题' : field === 'description' ? '描述' : field === 'tags' ? '标签' : '分类'}`}
+    >
+      <Wand2 className={`w-4 h-4 ${isAnalyzing ? 'animate-pulse' : ''}`} />
+    </button>
+  );
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,25 +124,39 @@ export function CreatePromptModal({ isOpen, onClose, onSuccess }: CreatePromptMo
         .map((tag) => tag.trim())
         .filter((tag) => tag);
 
-      const response = await promptService.createPrompt({
+      const payload = {
         ...formData,
         tags,
-      });
+      };
+
+      let response;
+      if (initialData) {
+        response = await promptService.updatePrompt(initialData.id, payload);
+      } else {
+        response = await promptService.createPrompt(payload);
+      }
 
       if (response.success) {
-        addPrompt(response.data);
-        setFormData({
-          title: '',
-          description: '',
-          content: '',
-          category: '',
-          author: 'Anonymous',
-          tags: '',
-        });
+        if (initialData) {
+          updatePrompt(initialData.id, response.data);
+        } else {
+          addPrompt(response.data);
+        }
+        
+        if (!initialData) {
+            setFormData({
+            title: '',
+            description: '',
+            content: '',
+            category: '',
+            author: 'Anonymous',
+            tags: '',
+            });
+        }
         onClose();
         onSuccess?.();
       } else {
-        setError(response.message || 'Failed to create prompt');
+        setError(response.message || `Failed to ${initialData ? 'update' : 'create'} prompt`);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -70,7 +171,26 @@ export function CreatePromptModal({ isOpen, onClose, onSuccess }: CreatePromptMo
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
-          <h2 className="text-xl font-bold">创建新提示词</h2>
+          <h2 className="text-xl font-bold">{initialData ? '编辑提示词' : '创建新提示词'}
+          
+          </h2>
+
+          {/* Global Action Bar */}
+          <div className="flex justify-end mb-2">
+             <button
+                type="button"
+                onClick={() => handleSmartAnalyze()}
+                disabled={isAnalyzing || (!formData.content && !formData.title && !formData.description)}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm"
+              >
+                {isAnalyzing && !formData.content ? (
+                   <Wand2 className="w-4 h-4 animate-spin" />
+                ) : (
+                   <Wand2 className="w-4 h-4" />
+                )}
+                一键生成全部信息
+              </button>
+          </div>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600"
@@ -88,10 +208,14 @@ export function CreatePromptModal({ isOpen, onClose, onSuccess }: CreatePromptMo
             </div>
           )}
 
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              标题 *
-            </label>
+            <div className="flex items-center gap-2 mb-1">
+              <label className="block text-sm font-medium text-gray-700">
+                标题 *
+              </label>
+              <AiButton field="title" />
+            </div>
             <input
               type="text"
               name="title"
@@ -104,9 +228,12 @@ export function CreatePromptModal({ isOpen, onClose, onSuccess }: CreatePromptMo
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              描述
-            </label>
+            <div className="flex items-center gap-2 mb-1">
+              <label className="block text-sm font-medium text-gray-700">
+                描述
+              </label>
+              <AiButton field="description" />
+            </div>
             <input
               type="text"
               name="description"
@@ -118,9 +245,14 @@ export function CreatePromptModal({ isOpen, onClose, onSuccess }: CreatePromptMo
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              提示词内容 *
-            </label>
+            <div className="flex justify-between items-center mb-1">
+              <div className="flex items-center gap-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  提示词内容 *
+                </label>
+                <AiButton field="content" />
+              </div>
+            </div>
             <textarea
               name="content"
               value={formData.content}
@@ -134,9 +266,12 @@ export function CreatePromptModal({ isOpen, onClose, onSuccess }: CreatePromptMo
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                分类
-              </label>
+              <div className="flex items-center gap-2 mb-1">
+                <label className="block text-sm font-medium text-gray-700">
+                  分类
+                </label>
+                <AiButton field="category" />
+              </div>
               <select
                 name="category"
                 value={formData.category}
@@ -167,9 +302,12 @@ export function CreatePromptModal({ isOpen, onClose, onSuccess }: CreatePromptMo
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              标签 (逗号分隔)
-            </label>
+            <div className="flex items-center gap-2 mb-1">
+              <label className="block text-sm font-medium text-gray-700">
+                标签 (逗号分隔)
+              </label>
+              <AiButton field="tags" />
+            </div>
             <input
               type="text"
               name="tags"
@@ -186,7 +324,7 @@ export function CreatePromptModal({ isOpen, onClose, onSuccess }: CreatePromptMo
               disabled={isLoading}
               className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 font-medium"
             >
-              {isLoading ? '创建中...' : '创建提示词'}
+              {isLoading ? '提交中...' : initialData ? '保存修改' : '创建提示词'}
             </button>
             <button
               type="button"
