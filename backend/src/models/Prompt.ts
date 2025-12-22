@@ -45,9 +45,9 @@ export class PromptModel {
 
     // 创建初始版本历史
     await database.run(
-      `INSERT INTO prompt_history (id, promptId, content, version, changedBy, createdAt)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [uuidv4(), id, data.content, 1, data.author || 'Anonymous', now]
+      `INSERT INTO prompt_history (id, promptId, version, title, description, content, category, tags, changedBy, createdAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [uuidv4(), id, 1, data.title, data.description || '', data.content, data.category || '', JSON.stringify(data.tags || []), data.author || 'Anonymous', now]
     );
 
     return this.getById(id) as Promise<Prompt>;
@@ -129,17 +129,6 @@ export class PromptModel {
     if (data.content) {
       updateFields.push('content = ?');
       updateValues.push(data.content);
-      // 创建版本历史
-      const history = await database.get(
-        `SELECT MAX(version) as maxVersion FROM prompt_history WHERE promptId = ?`,
-        [id]
-      );
-      const newVersion = (history.maxVersion || 0) + 1;
-      await database.run(
-        `INSERT INTO prompt_history (id, promptId, content, version, changedBy, createdAt)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [uuidv4(), id, data.content, newVersion, changedBy || 'Unknown', now]
-      );
     }
     if (data.category) {
       updateFields.push('category = ?');
@@ -161,13 +150,40 @@ export class PromptModel {
       );
     }
     // 更新标签（替换式）
+    let currentTags = prompt.tags; // Default to existing
     if (data.tags) {
       // Remove existing prompt_tags entries
       await database.run(`DELETE FROM prompt_tags WHERE promptId = ?`, [id]);
       for (const tagName of data.tags) {
         await this.addTag(id, tagName);
       }
+      currentTags = data.tags;
     }
+
+    // Create new version history if content or core metadata changed
+    // We assume any update via this method triggers a version if valuable fields changed.
+    // Let's just do it for now.
+    const history = await database.get(
+      `SELECT MAX(version) as maxVersion FROM prompt_history WHERE promptId = ?`,
+      [id]
+    );
+    const newVersion = (history.maxVersion || 0) + 1;
+    
+    // Construct full state for history
+    const newState = {
+        title: data.title !== undefined ? data.title : prompt.title,
+        description: data.description !== undefined ? data.description : prompt.description,
+        content: data.content !== undefined ? data.content : prompt.content,
+        category: data.category !== undefined ? data.category : prompt.category,
+        tags: currentTags
+    };
+
+    await database.run(
+      `INSERT INTO prompt_history (id, promptId, version, title, description, content, category, tags, changedBy, createdAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [uuidv4(), id, newVersion, newState.title, newState.description || '', newState.content, newState.category || '', JSON.stringify(newState.tags || []), changedBy || 'Unknown', now]
+    );
+
     return this.getById(id) as Promise<Prompt>;
   }
 

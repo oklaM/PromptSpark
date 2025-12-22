@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Edit, X } from 'lucide-react';
 import { PermissionManagement } from './PermissionManagement';
+import { HistoryList } from './HistoryList';
 import { CommentThread } from './CommentThread';
 import { DiscussionSection } from './DiscussionSection';
 import { RatingComponent } from './RatingComponent';
@@ -37,7 +38,7 @@ export function PromptDetail({
   onClose,
   onEdit,
 }: PromptDetailProps) {
-  const [activeTab, setActiveTab] = useState<'content' | 'comments' | 'discussions' | 'ratings' | 'permissions'>('content');
+  const [activeTab, setActiveTab] = useState<'content' | 'comments' | 'discussions' | 'ratings' | 'permissions' | 'history'>('content');
   const { user } = useAuthStore();
   const isOwner = user?.username === author;
 
@@ -128,6 +129,7 @@ export function PromptDetail({
               { key: 'ratings', label: '⭐ 评分' },
               { key: 'comments', label: '💬 评论' },
               { key: 'discussions', label: '🗣️ 讨论' },
+              { key: 'history', label: '📜 历史' },
               { key: 'permissions', label: '🔐 权限', show: isOwner },
             ].map(
               (tab) =>
@@ -183,6 +185,21 @@ export function PromptDetail({
           {activeTab === 'comments' && id && <CommentThread promptId={id} />}
 
           {activeTab === 'discussions' && id && <DiscussionSection promptId={id} />}
+
+          {activeTab === 'history' && id && (
+            <HistoryList 
+                promptId={id} 
+                onRevertSuccess={() => {
+                    // Trigger a refresh of the prompt details if needed, 
+                    // ideally by calling an onUpdate prop or similar, 
+                    // but for now the user will see the change in history
+                    // and changing tab back to content should show it if we fetched fresh data.
+                    // Since PromptDetail receives props, we rely on parent to update, or internal re-fetch.
+                    // For simple implementation, we can just reload page or notify parent.
+                    window.location.reload(); // Simple brute force for now to ensure detail view updates
+                }} 
+            />
+          )}
 
           {activeTab === 'permissions' && id && isOwner && (
             <PermissionManagement promptId={id} isOwner={isOwner} />

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { PromptModel, CreatePromptDTO } from '../models/Prompt';
+import { PromptVersionModel } from '../models/PromptVersion';
 
 export class PromptController {
   static async create(req: Request, res: Response): Promise<void> {
@@ -238,6 +239,42 @@ export class PromptController {
       res.status(201).json({ success: true, data: dup, message: 'Prompt duplicated' });
     } catch (error) {
       res.status(500).json({ success: false, message: error instanceof Error ? error.message : 'Failed to duplicate prompt' });
+    }
+  }
+
+  static async getHistory(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const history = await PromptVersionModel.getHistory(id);
+      res.json({ success: true, data: history });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error instanceof Error ? error.message : 'Failed to get history' });
+    }
+  }
+
+  static async revert(req: Request, res: Response): Promise<void> {
+    try {
+      const { id, version } = req.params;
+      const verNum = parseInt(version);
+      const targetVersion = await PromptVersionModel.getVersion(id, verNum);
+
+      if (!targetVersion) {
+        res.status(404).json({ success: false, message: 'Version not found' });
+        return;
+      }
+
+      // Update prompt with version data
+      const updated = await PromptModel.update(id, {
+        title: targetVersion.title,
+        description: targetVersion.description,
+        content: targetVersion.content,
+        category: targetVersion.category,
+        tags: targetVersion.tags
+      }, `Reverted to v${verNum}`);
+
+      res.json({ success: true, data: updated, message: `Reverted to version ${verNum}` });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error instanceof Error ? error.message : 'Failed to revert' });
     }
   }
 }

@@ -83,14 +83,28 @@ class Database {
       CREATE TABLE IF NOT EXISTS prompt_history (
         id TEXT PRIMARY KEY,
         promptId TEXT NOT NULL,
-        content TEXT NOT NULL,
         version INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        content TEXT NOT NULL,
+        category TEXT,
+        tags TEXT, -- JSON array string
         changedBy TEXT,
         changeLog TEXT,
         createdAt TEXT NOT NULL,
         FOREIGN KEY (promptId) REFERENCES prompts(id) ON DELETE CASCADE
       )
     `);
+
+    // Migration for existing tables
+    try {
+        await run(`ALTER TABLE prompt_history ADD COLUMN title TEXT DEFAULT ''`);
+        await run(`ALTER TABLE prompt_history ADD COLUMN description TEXT`);
+        await run(`ALTER TABLE prompt_history ADD COLUMN category TEXT`);
+        await run(`ALTER TABLE prompt_history ADD COLUMN tags TEXT`);
+    } catch (e) {
+        // Ignore errors if columns already exist
+    }
 
     // Favorites 收藏表
     await run(`

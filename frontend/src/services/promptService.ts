@@ -84,6 +84,18 @@ class PromptService {
     const response = await this.client.post(`/prompts/${id}/duplicate`, {});
     return response.data;
   }
+
+  // Get version history
+  async getHistory(id: string) {
+    const response = await this.client.get(`/prompts/${id}/history`);
+    return response.data;
+  }
+
+  // Revert to version
+  async revertPrompt(id: string, version: number) {
+    const response = await this.client.post(`/prompts/${id}/revert/${version}`);
+    return response.data;
+  }
 }
 
 export const promptService = new PromptService();

@@ -24,4 +24,8 @@ router.post('/prompts/bulk', PromptController.bulkAction);
 // Duplicate
 router.post('/prompts/:id/duplicate', PromptController.duplicate);
 
+// Version History
+router.get('/prompts/:id/history', PromptController.getHistory);
+router.post('/prompts/:id/revert/:version', PromptController.revert);
+
 export default router;
