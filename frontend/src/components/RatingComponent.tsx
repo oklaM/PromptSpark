@@ -6,6 +6,7 @@ import {
   deleteRating,
 } from '../services/collaborationService';
 import { useAuthStore } from '../stores/authStore';
+import { useToast } from '../context/ToastContext';
 
 interface RatingData {
   id: string;
@@ -45,7 +46,9 @@ export const RatingComponent: React.FC<RatingComponentProps> = ({ promptId }) =>
   const [relevance, setRelevance] = useState(0);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
   const { user } = useAuthStore();
+  const { show } = useToast();
 
   useEffect(() => {
     loadRatings();
@@ -85,8 +88,11 @@ export const RatingComponent: React.FC<RatingComponentProps> = ({ promptId }) =>
       setShowForm(false);
       loadRatings();
       loadStats();
-    } catch (error) {
+      show('评分提交成功', 'success');
+    } catch (error: any) {
       console.error('Failed to submit rating:', error);
+      const msg = error.response?.data?.error || '评分提交失败，请稍后重试';
+      show(msg, 'error');
     } finally {
       setLoading(false);
     }
@@ -117,174 +123,194 @@ export const RatingComponent: React.FC<RatingComponentProps> = ({ promptId }) =>
   };
 
   return (
-    <div className="bg-white rounded-lg p-6 border border-gray-200">
-      <h3 className="text-xl font-bold mb-4">评分和反馈</h3>
-
-      {/* 评分统计 */}
-      {stats && (
-        <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="text-4xl font-bold text-blue-600">{stats.averageScore.toFixed(1)}</div>
-              <div>
-                <div>{renderStars(Math.round(stats.averageScore))}</div>
-                <p className="text-sm text-gray-600">{stats.totalRatings} 个评分</p>
-              </div>
+    <div className="bg-white rounded-lg p-6 border border-gray-200 transition-all">
+      <div 
+        className="flex items-center justify-between cursor-pointer"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center gap-4">
+          <h3 className="text-xl font-bold">评分和反馈</h3>
+          {!isExpanded && stats && (
+            <div className="flex items-center gap-2">
+              <span className="text-2xl font-bold text-blue-600">{stats.averageScore.toFixed(1)}</span>
+              {renderStars(Math.round(stats.averageScore))}
+              <span className="text-sm text-gray-500">({stats.totalRatings} 个评分)</span>
             </div>
-          </div>
+          )}
+        </div>
+        <button className="text-gray-500 hover:text-gray-700">
+          {isExpanded ? '收起 ▲' : '展开 ▼'}
+        </button>
+      </div>
 
-          {/* 评分分布 */}
-          <div className="space-y-2 text-sm">
-            {[5, 4, 3, 2, 1].map((score) => (
-              <div key={score} className="flex items-center gap-2">
-                <span className="w-8">{score} ⭐</span>
-                <div className="flex-1 bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-yellow-400 h-2 rounded-full transition-all"
-                    style={{
-                      width: `${
-                        stats.totalRatings > 0
-                          ? (stats.ratingDistribution[score] / stats.totalRatings) * 100
-                          : 0
-                      }%`,
-                    }}
-                  />
+      {isExpanded && (
+        <div className="mt-4 animate-fadeIn">
+          {/* 评分统计 */}
+          {stats && (
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="text-4xl font-bold text-blue-600">{stats.averageScore.toFixed(1)}</div>
+                  <div>
+                    <div>{renderStars(Math.round(stats.averageScore))}</div>
+                    <p className="text-sm text-gray-600">{stats.totalRatings} 个评分</p>
+                  </div>
                 </div>
-                <span className="w-8 text-right">{stats.ratingDistribution[score] || 0}</span>
               </div>
-            ))}
-          </div>
 
-          {/* 详细分析 */}
-          <div className="mt-4 pt-4 border-t border-gray-300 grid grid-cols-3 gap-4 text-sm">
-            <div>
-              <p className="text-gray-600">有用性</p>
-              <p className="font-semibold">{stats.averageHelpfulness.toFixed(1)}/100</p>
+              {/* 评分分布 */}
+              <div className="space-y-2 text-sm">
+                {[5, 4, 3, 2, 1].map((score) => (
+                  <div key={score} className="flex items-center gap-2">
+                    <span className="w-8">{score} ⭐</span>
+                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-yellow-400 h-2 rounded-full transition-all"
+                        style={{
+                          width: `${
+                            stats.totalRatings > 0
+                              ? (stats.ratingDistribution[score] / stats.totalRatings) * 100
+                              : 0
+                          }%`,
+                        }}
+                      />
+                    </div>
+                    <span className="w-8 text-right">{stats.ratingDistribution[score] || 0}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* 详细分析 */}
+              <div className="mt-4 pt-4 border-t border-gray-300 grid grid-cols-3 gap-4 text-sm">
+                <div>
+                  <p className="text-gray-600">有用性</p>
+                  <p className="font-semibold">{stats.averageHelpfulness.toFixed(1)}/100</p>
+                </div>
+                <div>
+                  <p className="text-gray-600">准确性</p>
+                  <p className="font-semibold">{stats.averageAccuracy.toFixed(1)}/100</p>
+                </div>
+                <div>
+                  <p className="text-gray-600">相关性</p>
+                  <p className="font-semibold">{stats.averageRelevance.toFixed(1)}/100</p>
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="text-gray-600">准确性</p>
-              <p className="font-semibold">{stats.averageAccuracy.toFixed(1)}/100</p>
-            </div>
-            <div>
-              <p className="text-gray-600">相关性</p>
-              <p className="font-semibold">{stats.averageRelevance.toFixed(1)}/100</p>
-            </div>
+          )}
+
+          {/* 评分输入表单 */}
+          {user && !showForm && (
+            <button
+              onClick={() => setShowForm(true)}
+              className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            >
+              📝 发表评分
+            </button>
+          )}
+
+          {user && showForm && (
+            <form onSubmit={handleSubmitRating} className="mb-6 p-4 bg-gray-50 rounded-lg space-y-4">
+              <div>
+                <label className="block text-sm font-semibold mb-2">您的评分</label>
+                            <div className="flex gap-2">
+                              {[1, 2, 3, 4, 5].map((i) => (
+                                <button
+                                  key={i}
+                                  type="button"
+                                  onClick={() => setUserRating(i)}
+                                  className={`text-3xl transition-transform ${
+                                    i <= userRating ? 'scale-125 text-yellow-400' : 'text-gray-300 hover:text-yellow-200'
+                                  }`}
+                                >
+                                  {i <= userRating ? '⭐' : '☆'}
+                                </button>
+                              ))}
+                            </div>              </div>
+
+              <div>
+                <label className="block text-sm font-semibold mb-2">反馈意见</label>
+                <textarea
+                  value={feedback}
+                  onChange={(e) => setFeedback(e.target.value)}
+                  placeholder="分享您的使用体验..."
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={3}
+                />
+              </div>
+
+              {/* 详细评分 */}
+              <div className="grid grid-cols-3 gap-4">
+                {[
+                  { label: '有用性', value: helpfulness, setter: setHelpfulness },
+                  { label: '准确性', value: accuracy, setter: setAccuracy },
+                  { label: '相关性', value: relevance, setter: setRelevance },
+                ].map(({ label, value, setter }) => (
+                  <div key={label}>
+                    <label className="block text-sm font-semibold mb-2">{label}</label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={value}
+                      onChange={(e) => setter(parseInt(e.target.value))}
+                      className="w-full"
+                    />
+                    <p className="text-sm text-gray-600 mt-1">{value}/100</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={userRating === 0 || loading}
+                  className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                  {loading ? '提交中...' : '提交评分'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowForm(false)}
+                  className="flex-1 px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400"
+                >
+                  取消
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* 评分列表 */}
+          <div className="space-y-4">
+            <h4 className="font-semibold text-lg">最近的评分</h4>
+            {ratings.length === 0 ? (
+              <p className="text-center text-gray-500">暂无评分</p>
+            ) : (
+              ratings.slice(0, 5).map((rating) => (
+                <div key={rating.id} className="p-4 border border-gray-200 rounded-lg">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="font-semibold">{rating.userName}</p>
+                      <div className="mt-1">{renderStars(rating.score)}</div>
+                    </div>
+                    {user?.id === rating.userId && (
+                      <button
+                        onClick={() => handleDeleteRating(rating.id)}
+                        className="text-red-500 hover:text-red-700 text-sm"
+                      >
+                        删除
+                      </button>
+                    )}
+                  </div>
+                  {rating.feedback && <p className="text-gray-700 text-sm mb-2">{rating.feedback}</p>}
+                  <p className="text-xs text-gray-500">
+                    {new Date(rating.createdAt).toLocaleDateString('zh-CN')}
+                  </p>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
-
-      {/* 评分输入表单 */}
-      {user && !showForm && (
-        <button
-          onClick={() => setShowForm(true)}
-          className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-        >
-          📝 发表评分
-        </button>
-      )}
-
-      {user && showForm && (
-        <form onSubmit={handleSubmitRating} className="mb-6 p-4 bg-gray-50 rounded-lg space-y-4">
-          <div>
-            <label className="block text-sm font-semibold mb-2">您的评分</label>
-            <div className="flex gap-2">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => setUserRating(i)}
-                  className={`text-3xl transition-transform ${
-                    i <= userRating ? 'scale-125 text-yellow-400' : 'text-gray-300'
-                  }`}
-                >
-                  ⭐
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold mb-2">反馈意见</label>
-            <textarea
-              value={feedback}
-              onChange={(e) => setFeedback(e.target.value)}
-              placeholder="分享您的使用体验..."
-              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              rows={3}
-            />
-          </div>
-
-          {/* 详细评分 */}
-          <div className="grid grid-cols-3 gap-4">
-            {[
-              { label: '有用性', value: helpfulness, setter: setHelpfulness },
-              { label: '准确性', value: accuracy, setter: setAccuracy },
-              { label: '相关性', value: relevance, setter: setRelevance },
-            ].map(({ label, value, setter }) => (
-              <div key={label}>
-                <label className="block text-sm font-semibold mb-2">{label}</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={value}
-                  onChange={(e) => setter(parseInt(e.target.value))}
-                  className="w-full"
-                />
-                <p className="text-sm text-gray-600 mt-1">{value}/100</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={userRating === 0 || loading}
-              className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
-            >
-              {loading ? '提交中...' : '提交评分'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowForm(false)}
-              className="flex-1 px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400"
-            >
-              取消
-            </button>
-          </div>
-        </form>
-      )}
-
-      {/* 评分列表 */}
-      <div className="space-y-4">
-        <h4 className="font-semibold text-lg">最近的评分</h4>
-        {ratings.length === 0 ? (
-          <p className="text-center text-gray-500">暂无评分</p>
-        ) : (
-          ratings.slice(0, 5).map((rating) => (
-            <div key={rating.id} className="p-4 border border-gray-200 rounded-lg">
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <p className="font-semibold">{rating.userName}</p>
-                  <div className="mt-1">{renderStars(rating.score)}</div>
-                </div>
-                {user?.id === rating.userId && (
-                  <button
-                    onClick={() => handleDeleteRating(rating.id)}
-                    className="text-red-500 hover:text-red-700 text-sm"
-                  >
-                    删除
-                  </button>
-                )}
-              </div>
-              {rating.feedback && <p className="text-gray-700 text-sm mb-2">{rating.feedback}</p>}
-              <p className="text-xs text-gray-500">
-                {new Date(rating.createdAt).toLocaleDateString('zh-CN')}
-              </p>
-            </div>
-          ))
-        )}
-      </div>
     </div>
   );
 };

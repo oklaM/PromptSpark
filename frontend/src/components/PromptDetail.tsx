@@ -3,7 +3,6 @@ import { Edit, X } from 'lucide-react';
 import { PermissionManagement } from './PermissionManagement';
 import { HistoryList } from './HistoryList';
 import { CommentThread } from './CommentThread';
-import { DiscussionSection } from './DiscussionSection';
 import { RatingComponent } from './RatingComponent';
 import { useAuthStore } from '../stores/authStore';
 
@@ -38,13 +37,12 @@ export function PromptDetail({
   onClose,
   onEdit,
 }: PromptDetailProps) {
-  const [activeTab, setActiveTab] = useState<'content' | 'comments' | 'discussions' | 'ratings' | 'permissions' | 'history'>('content');
+  const [showHistory, setShowHistory] = useState(false);
   const { user } = useAuthStore();
   const isOwner = user?.username === author;
 
   const handleCopyContent = () => {
     navigator.clipboard.writeText(content);
-    // 可以添加提示
   };
 
   const formatDate = (dateString: string) => {
@@ -121,88 +119,74 @@ export function PromptDetail({
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="border-b border-gray-200">
-          <div className="flex overflow-x-auto px-6">
-            {[
-              { key: 'content', label: '📝 内容' },
-              { key: 'ratings', label: '⭐ 评分' },
-              { key: 'comments', label: '💬 评论' },
-              { key: 'discussions', label: '🗣️ 讨论' },
-              { key: 'history', label: '📜 历史' },
-              { key: 'permissions', label: '🔐 权限', show: isOwner },
-            ].map(
-              (tab) =>
-                tab.show !== false && (
-                  <button
-                    key={tab.key}
-                    onClick={() => setActiveTab(tab.key as any)}
-                    className={`px-4 py-3 font-semibold border-b-2 transition-colors whitespace-nowrap ${
-                      activeTab === tab.key
-                        ? 'border-blue-600 text-blue-600'
-                        : 'border-transparent text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                )
-            )}
-          </div>
-        </div>
-
-        {/* Content */}
+        {/* Main Content Area */}
         <div className="p-6">
-          {activeTab === 'content' && (
-            <div>
-              <div className="mb-6">
-                <h2 className="text-lg font-semibold mb-3">提示词内容</h2>
-                <div className="relative bg-gray-50 rounded-lg p-4 border border-gray-200">
-                  <pre className="text-sm text-gray-700 font-mono whitespace-pre-wrap break-words">
-                    {content}
-                  </pre>
-                  <button
-                    onClick={handleCopyContent}
-                    className="absolute top-2 right-2 p-2 bg-white rounded border border-gray-300 hover:bg-gray-50 text-gray-600 hover:text-gray-900"
-                    title="复制内容"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
+          {/* Content Section */}
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold mb-3">提示词内容</h2>
+            <div className="relative bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <pre className="text-sm text-gray-700 font-mono whitespace-pre-wrap break-words">
+                {content}
+              </pre>
+              <button
+                onClick={handleCopyContent}
+                className="absolute top-2 right-2 p-2 bg-white rounded border border-gray-300 hover:bg-gray-50 text-gray-600 hover:text-gray-900"
+                title="复制内容"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </button>
+            </div>
+          </div>
 
-              {updatedAt && (
-                <p className="text-xs text-gray-500">
-                  最后更新: {formatDate(updatedAt)}
-                </p>
-              )}
+          <div className="flex items-center gap-4 text-xs text-gray-500 mb-8">
+            {updatedAt && <span>最后更新: {formatDate(updatedAt)}</span>}
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              className="text-blue-500 hover:text-blue-700 hover:underline"
+            >
+              {showHistory ? '隐藏历史' : '查看历史记录'}
+            </button>
+          </div>
+
+          {/* History Section */}
+          {showHistory && id && (
+            <div className="mb-8 border border-blue-100 rounded-lg p-4 bg-blue-50/30">
+              <h3 className="text-lg font-bold mb-4 text-gray-800">历史版本</h3>
+              <HistoryList
+                promptId={id}
+                onRevertSuccess={() => {
+                  window.location.reload();
+                }}
+              />
             </div>
           )}
 
-          {activeTab === 'ratings' && id && <RatingComponent promptId={id} />}
-
-          {activeTab === 'comments' && id && <CommentThread promptId={id} />}
-
-          {activeTab === 'discussions' && id && <DiscussionSection promptId={id} />}
-
-          {activeTab === 'history' && id && (
-            <HistoryList 
-                promptId={id} 
-                onRevertSuccess={() => {
-                    // Trigger a refresh of the prompt details if needed, 
-                    // ideally by calling an onUpdate prop or similar, 
-                    // but for now the user will see the change in history
-                    // and changing tab back to content should show it if we fetched fresh data.
-                    // Since PromptDetail receives props, we rely on parent to update, or internal re-fetch.
-                    // For simple implementation, we can just reload page or notify parent.
-                    window.location.reload(); // Simple brute force for now to ensure detail view updates
-                }} 
-            />
+          {/* Permissions Section (Owner Only) */}
+          {id && isOwner && (
+            <div className="mb-8">
+               <PermissionManagement promptId={id} isOwner={isOwner} />
+            </div>
           )}
 
-          {activeTab === 'permissions' && id && isOwner && (
-            <PermissionManagement promptId={id} isOwner={isOwner} />
+          <hr className="my-8 border-gray-200" />
+
+          {/* Ratings Section */}
+          {id && (
+            <div className="mb-8">
+              <RatingComponent promptId={id} />
+            </div>
+          )}
+
+          <hr className="my-8 border-gray-200" />
+
+          {/* Comments Section */}
+          {id && (
+            <div className="mb-8">
+              <h3 className="text-xl font-bold mb-4">评论</h3>
+              <CommentThread promptId={id} />
+            </div>
           )}
         </div>
       </div>

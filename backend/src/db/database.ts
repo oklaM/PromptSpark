@@ -17,6 +17,7 @@ class Database {
           reject(err);
         } else {
           console.log('Database connected:', DB_PATH);
+          this.db!.run('PRAGMA foreign_keys = ON');
           this.createTables()
             .then(() => resolve())
             .catch(reject);

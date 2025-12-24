@@ -12,7 +12,7 @@ describe('Collaboration API Integration Tests', () => {
 
     // Mock authentication middleware for tests
     app.use((req: any, res, next) => {
-      req.userId = 'test-user-1';
+      req.user = { id: 'test-user-1', username: 'test-user' };
       next();
     });
 
@@ -163,7 +163,7 @@ describe('Collaboration API Integration Tests', () => {
   });
 
   describe('Middleware Integration', () => {
-    test('should include userId in request context', async () => {
+    test('should include user in request context', async () => {
       const response = await request(app)
         .get('/api/collaboration/check-permission/1/test-user-1');
 

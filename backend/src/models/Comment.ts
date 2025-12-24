@@ -11,6 +11,7 @@ export interface Comment {
   content: string;
   parentId: string | null; // 用于回复的父评论 ID
   likes: number;
+  replyCount?: number;
   likedBy: string[]; // 点赞用户列表
   createdAt: string;
   updatedAt: string;

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { usePromptStore } from '../stores/promptStore';
 import { useFilterStore } from '../stores/filterStore';
 import { promptService } from '../services/promptService';
@@ -7,28 +7,28 @@ export function usePrompts() {
   const { prompts, setPrompts, setLoading, setError } = usePromptStore();
   const { searchQuery, selectedCategory, selectedTags } = useFilterStore();
 
-  useEffect(() => {
-    const loadPrompts = async () => {
-      setLoading(true);
-      try {
-        if (searchQuery) {
-          const result = await promptService.searchPrompts(searchQuery, selectedCategory, selectedTags);
-          setPrompts(result.data || []);
-        } else {
-          const result = await promptService.getAllPrompts(1, 20);
-          setPrompts(result.data || []);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load prompts');
-      } finally {
-        setLoading(false);
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      if (searchQuery) {
+        const result = await promptService.searchPrompts(searchQuery, selectedCategory, selectedTags);
+        setPrompts(result.data || []);
+      } else {
+        const result = await promptService.getAllPrompts(1, 20);
+        setPrompts(result.data || []);
       }
-    };
-
-    loadPrompts();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load prompts');
+    } finally {
+      setLoading(false);
+    }
   }, [searchQuery, selectedCategory, selectedTags, setPrompts, setLoading, setError]);
 
-  return prompts;
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  return { prompts, refresh };
 }
 
 export function usePromptDetail(id: string) {

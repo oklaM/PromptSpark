@@ -26,7 +26,7 @@ function AppContent() {
   const [showRegister, setShowRegister] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
 
-  const prompts = usePrompts();
+  const { prompts, refresh } = usePrompts();
   const currentPrompt = usePromptDetail(selectedPromptId || '');
   const { isLoading, error } = usePromptStore();
 
@@ -38,6 +38,7 @@ function AppContent() {
   const handleBack = () => {
     setViewType('list');
     setSelectedPromptId(null);
+    refresh(); // Refresh list when going back might be good too, but definitely needed for duplicates
   };
 
   const handleEdit = () => {
@@ -53,7 +54,7 @@ function AppContent() {
   };
 
   const handleCreateSuccess = () => {
-    // 可以刷新列表
+    refresh(); // Refresh list on create/update
     if (editingPrompt) {
         // If we were editing, we might want to refresh the current detail view or just close
     }
@@ -70,7 +71,7 @@ function AppContent() {
   const handleDuplicate = async (id: string) => {
     try {
       await promptService.duplicatePrompt(id);
-      // refresh by setting a store or reloading prompts in hook
+      refresh(); // Auto refresh after duplication
     } catch (err) {
       console.error('Duplicate failed', err);
     }
@@ -103,7 +104,7 @@ function AppContent() {
 
               {/* Bulk Actions Bar */}
               <div className="mb-4 overflow-x-auto">
-                <BulkActions selectedIds={selectedIds} onCleared={clearSelection} onImported={() => { /* refresh */ }} />
+                <BulkActions selectedIds={selectedIds} onCleared={clearSelection} onImported={refresh} onSuccess={refresh} />
               </div>
 
               {/* Prompts Grid */}
@@ -200,7 +201,7 @@ function AppContent() {
       {/* Footer */}
       <footer className="bg-white border-t mt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center text-gray-600 text-sm">
-          <p>© 2024 PromptSpark. All rights reserved.</p>
+          <p>© 2025 PromptSpark. All rights reserved.</p>
         </div>
       </footer>
     </div>

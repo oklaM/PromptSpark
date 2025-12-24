@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getComments, createComment, deleteComment, likeComment } from '../services/collaborationService';
 import { useAuthStore } from '../stores/authStore';
+import { useToast } from '../context/ToastContext';
 
 interface Comment {
   id: string;
@@ -10,6 +11,7 @@ interface Comment {
   content: string;
   parentId: string | null;
   likes: number;
+  replyCount?: number;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -26,6 +28,7 @@ export const CommentThread: React.FC<CommentThreadProps> = ({ promptId, parentId
   const [loading, setLoading] = useState(false);
   const [replies, setReplies] = useState<{ [key: string]: boolean }>({});
   const { user } = useAuthStore();
+  const { show } = useToast();
 
   useEffect(() => {
     loadComments();
@@ -51,8 +54,11 @@ export const CommentThread: React.FC<CommentThreadProps> = ({ promptId, parentId
       await createComment(promptId, newComment, parentId);
       setNewComment('');
       loadComments();
-    } catch (error) {
+      show('评论发布成功', 'success');
+    } catch (error: any) {
       console.error('Failed to create comment:', error);
+      const msg = error.response?.data?.error || '评论发布失败';
+      show(msg, 'error');
     }
   };
 
@@ -144,7 +150,7 @@ export const CommentThread: React.FC<CommentThreadProps> = ({ promptId, parentId
                   onClick={() => toggleReplies(comment.id)}
                   className="text-gray-500 hover:text-blue-500"
                 >
-                  💬 回复
+                  💬 回复 ({comment.replyCount || 0})
                 </button>
               </div>
 

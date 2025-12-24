@@ -21,4 +21,19 @@ axiosClient.interceptors.request.use((config) => {
   return config;
 });
 
+// Handle 401 Unauthorized (Token expired/invalid)
+axiosClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      // Token expired or invalid
+      const { logout } = useAuthStore.getState();
+      logout();
+      // Optionally redirect or show message
+      // window.location.href = '/'; 
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default axiosClient;

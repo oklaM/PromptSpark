@@ -6,6 +6,7 @@ import {
 } from '../services/collaborationService';
 import { CommentThread } from './CommentThread';
 import { useAuthStore } from '../stores/authStore';
+import { useToast } from '../context/ToastContext';
 
 interface Discussion {
   id: string;
@@ -43,6 +44,7 @@ export const DiscussionSection: React.FC<DiscussionComponentProps> = ({ promptId
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const { user } = useAuthStore();
+  const { show } = useToast();
 
   useEffect(() => {
     loadDiscussions();
@@ -68,8 +70,11 @@ export const DiscussionSection: React.FC<DiscussionComponentProps> = ({ promptId
       setDescription('');
       setShowNewForm(false);
       loadDiscussions();
-    } catch (error) {
+      show('讨论创建成功', 'success');
+    } catch (error: any) {
       console.error('Failed to create discussion:', error);
+      const msg = error.response?.data?.error || '讨论创建失败';
+      show(msg, 'error');
     } finally {
       setLoading(false);
     }

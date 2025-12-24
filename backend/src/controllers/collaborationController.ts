@@ -15,7 +15,7 @@ import { Rating, PromptStats } from '../models/Rating';
 export const grantPermission = async (req: Request, res: Response) => {
   try {
     const { promptId, userId, role } = req.body;
-    const currentUserId = (req as any).userId;
+    const currentUserId = (req as any).user?.id;
 
     // 验证权限
     const ownerPerm = await database.get(
@@ -51,7 +51,7 @@ export const grantPermission = async (req: Request, res: Response) => {
 export const revokePermission = async (req: Request, res: Response) => {
   try {
     const { permissionId } = req.params;
-    const currentUserId = (req as any).userId;
+    const currentUserId = (req as any).user?.id;
 
     const permission = await database.get(
       'SELECT * FROM permissions WHERE id = ?',
@@ -106,7 +106,7 @@ export const checkUserPermission = async (req: Request, res: Response) => {
   try {
     const { promptId } = req.params;
     // allow passing userId via params for tests/legacy routes: /check-permission/:promptId/:userId
-    const userId = (req.params as any).userId || (req as any).userId;
+    const userId = (req.params as any).userId || (req as any).user?.id;
 
     const permission = await database.get(
       `SELECT * FROM permissions 
@@ -131,21 +131,8 @@ export const checkUserPermission = async (req: Request, res: Response) => {
 export const createComment = async (req: Request, res: Response) => {
   try {
     const { promptId, content, parentId } = req.body;
-    const userId = (req as any).userId;
-    const userName = (req as any).userName;
-
-    // 检查权限
-    const permission = await database.get(
-      `SELECT * FROM permissions 
-       WHERE promptId = ? AND userId = ? AND revokedAt IS NULL`,
-      [promptId, userId]
-    );
-
-    const permLevel = permission ? PERMISSION_LEVELS[permission.role] : null;
-    
-    if (!permLevel || !permLevel.canComment) {
-      return res.status(403).json({ error: '无权评论此提示词' });
-    }
+    const userId = (req as any).user?.id;
+    const userName = (req as any).user?.username;
 
     const id = uuidv4();
     const now = new Date().toISOString();
@@ -187,6 +174,9 @@ export const createComment = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error creating comment:', error);
+    if ((error as any).code === 'SQLITE_CONSTRAINT') {
+      return res.status(400).json({ error: '无法评论：提示词不存在或用户无效' });
+    }
     res.status(500).json({ error: '评论创建失败' });
   }
 };
@@ -196,17 +186,21 @@ export const getComments = async (req: Request, res: Response) => {
     const { promptId } = req.params;
     const { parentId } = req.query;
 
-    let sql = `SELECT * FROM comments WHERE promptId = ? AND deletedAt IS NULL`;
+    let sql = `
+      SELECT c.*, 
+        (SELECT COUNT(*) FROM comments r WHERE r.parentId = c.id AND r.deletedAt IS NULL) as replyCount
+      FROM comments c 
+      WHERE c.promptId = ? AND c.deletedAt IS NULL`;
     const params: any[] = [promptId];
 
     if (parentId) {
-      sql += ` AND parentId = ?`;
+      sql += ` AND c.parentId = ?`;
       params.push(parentId);
     } else {
-      sql += ` AND parentId IS NULL`;
+      sql += ` AND c.parentId IS NULL`;
     }
 
-    sql += ` ORDER BY createdAt DESC`;
+    sql += ` ORDER BY c.createdAt DESC`;
 
     const comments = await database.all(sql, params);
     res.json(comments);
@@ -219,7 +213,7 @@ export const getComments = async (req: Request, res: Response) => {
 export const deleteComment = async (req: Request, res: Response) => {
   try {
     const { commentId } = req.params;
-    const userId = (req as any).userId;
+    const userId = (req as any).user?.id;
 
     const comment = await database.get(
       'SELECT * FROM comments WHERE id = ?',
@@ -249,7 +243,7 @@ export const deleteComment = async (req: Request, res: Response) => {
 export const likeComment = async (req: Request, res: Response) => {
   try {
     const { commentId } = req.params;
-    const userId = (req as any).userId;
+    const userId = (req as any).user?.id;
 
     const existing = await database.get(
       'SELECT * FROM comment_likes WHERE commentId = ? AND userId = ?',
@@ -288,8 +282,8 @@ export const likeComment = async (req: Request, res: Response) => {
 export const createDiscussion = async (req: Request, res: Response) => {
   try {
     const { promptId, title, description } = req.body;
-    const userId = (req as any).userId;
-    const userName = (req as any).userName;
+    const userId = (req as any).user?.id;
+    const userName = (req as any).user?.username;
 
     const id = uuidv4();
     const now = new Date().toISOString();
@@ -304,6 +298,9 @@ export const createDiscussion = async (req: Request, res: Response) => {
     res.json({ success: true, discussionId: id });
   } catch (error) {
     console.error('Error creating discussion:', error);
+    if ((error as any).code === 'SQLITE_CONSTRAINT') {
+      return res.status(400).json({ error: '无法创建讨论：提示词不存在或用户无效' });
+    }
     res.status(500).json({ error: '讨论创建失败' });
   }
 };
@@ -350,8 +347,8 @@ export const updateDiscussionStatus = async (req: Request, res: Response) => {
 export const submitRating = async (req: Request, res: Response) => {
   try {
     const { promptId, score, feedback, helpfulness, accuracy, relevance } = req.body;
-    const userId = (req as any).userId;
-    const userName = (req as any).userName;
+    const userId = (req as any).user?.id;
+    const userName = (req as any).user?.username;
 
     if (score < 1 || score > 5) {
       return res.status(400).json({ error: '评分必须在 1-5 之间' });
@@ -370,6 +367,9 @@ export const submitRating = async (req: Request, res: Response) => {
     res.json({ success: true, ratingId: id });
   } catch (error) {
     console.error('Error submitting rating:', error);
+    if ((error as any).code === 'SQLITE_CONSTRAINT') {
+      return res.status(400).json({ error: '无法提交评分：提示词不存在或用户无效' });
+    }
     res.status(500).json({ error: '评分提交失败' });
   }
 };
@@ -447,7 +447,7 @@ export const getPromptStats = async (req: Request, res: Response) => {
 export const deleteRating = async (req: Request, res: Response) => {
   try {
     const { ratingId } = req.params;
-    const userId = (req as any).userId;
+    const userId = (req as any).user?.id;
 
     const rating = await database.get(
       'SELECT * FROM ratings WHERE id = ?',
