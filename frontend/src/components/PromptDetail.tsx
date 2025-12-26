@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Edit, X } from 'lucide-react';
+import { Edit, X, Play } from 'lucide-react';
 import { PermissionManagement } from './PermissionManagement';
 import { HistoryList } from './HistoryList';
 import { CommentThread } from './CommentThread';
 import { RatingComponent } from './RatingComponent';
+import { PromptPlayground } from './PromptPlayground';
 import { useAuthStore } from '../stores/authStore';
 
 interface PromptDetailProps {
@@ -38,6 +39,7 @@ export function PromptDetail({
   onEdit,
 }: PromptDetailProps) {
   const [showHistory, setShowHistory] = useState(false);
+  const [showPlayground, setShowPlayground] = useState(false);
   const { user } = useAuthStore();
   const isOwner = user?.username === author;
 
@@ -64,6 +66,14 @@ export function PromptDetail({
               <p className="text-blue-100 text-lg">{description}</p>
             </div>
             <div className="flex gap-2">
+              <button
+                onClick={() => setShowPlayground(true)}
+                className="flex items-center gap-1 px-3 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors font-medium backdrop-blur-sm"
+                title="在线运行"
+              >
+                <Play className="w-5 h-5 fill-current" />
+                <span className="hidden sm:inline">运行</span>
+              </button>
               {onEdit && (
                 <button
                   onClick={onEdit}
@@ -190,6 +200,12 @@ export function PromptDetail({
           )}
         </div>
       </div>
+
+      <PromptPlayground
+        isOpen={showPlayground}
+        onClose={() => setShowPlayground(false)}
+        initialPrompt={content}
+      />
     </div>
   );
 }

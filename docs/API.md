@@ -307,16 +307,25 @@ curl -X POST "http://localhost:5000/api/prompts" \
 
 ## 版本历史
 
-### v1.0.0 (2024-12-10)
-- ✓ 基础 CRUD 操作
-- ✓ 搜索和过滤
-- ✓ 浏览次数和点赞统计
-- ✓ 版本历史记录
+### v2.0.0 (2025-12-11)
+- ✓ Team Collaboration (Permissions, Comments, Discussions, Ratings)
+- ✓ Export/Import (JSON/CSV/MD)
+- ✓ Prompt Duplication
 
-### 计划中的功能
-- [ ] 用户认证（JWT）
-- [ ] 用户权限管理
-- [ ] 导入导出功能
-- [ ] 提示词收藏
-- [ ] 评论和讨论
-- [ ] API 速率限制
+### v1.0.0 (2024-12-10)
+- ✓ Basic CRUD
+- ✓ Search and Filtering
+- ✓ Views and Likes
+- ✓ Version History
+
+### Planned Features
+- [ ] User Authentication (JWT)
+- [ ] Prompt Favorites
+- [ ] API Rate Limiting
+- [ ] AI Copilot (Smart Refine)
+
+---
+
+## Team Collaboration API
+
+For detailed documentation on Collaboration features (Permissions, Comments, Discussions, Ratings), please refer to [COLLABORATION.md](./COLLABORATION.md).

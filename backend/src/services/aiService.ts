@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 
 export interface AiAnalysisResult {
   title?: string;
@@ -22,28 +23,48 @@ export class AiService {
    */
   static async analyzeContent(data: { content?: string; title?: string; description?: string }, targetField?: string): Promise<AiAnalysisResult> {
     const aiProvider = process.env.AI_PROVIDER;
-    const apiKey = process.env.AI_API_KEY;
+    const geminiKey = process.env.AI_API_KEY;
+    const deepSeekKey = process.env.DEEPSEEK_API_KEY;
     const content = data.content || '';
 
-    if (aiProvider === 'gemini' && apiKey) {
+    // 1. Try Configured Provider (If explicitly set to deepseek, or not set but deepseek key exists)
+    if ((aiProvider === 'deepseek' || !aiProvider) && deepSeekKey) {
+        try {
+            return await this.callDeepSeek(data, deepSeekKey, targetField);
+        } catch (error) {
+            console.error('AI Service Error (DeepSeek):', error);
+        }
+    } else if (aiProvider === 'gemini' && geminiKey) {
        try {
-         return await this.callGemini(data, apiKey, targetField);
+         return await this.callGemini(data, geminiKey, targetField);
        } catch (error) {
-         console.error('AI Service Error:', error);
-         // Fallback to local if AI fails
+         console.error('AI Service Error (Gemini):', error);
        }
     }
 
-    // Fallback to local heuristics
+    // 2. Fallback: Try whatever key is available, prioritizing DeepSeek
+    if (deepSeekKey) {
+         try {
+            return await this.callDeepSeek(data, deepSeekKey, targetField);
+        } catch (error) {
+            console.error('AI Service Error (DeepSeek Fallback):', error);
+        }
+    }
+
+    if (geminiKey) {
+        try {
+            return await this.callGemini(data, geminiKey, targetField);
+        } catch (error) {
+            console.error('AI Service Error (Gemini Fallback):', error);
+        }
+    }
+
+    // 3. Final Fallback: Local Heuristics
     return this.analyzeLocally(content);
   }
 
-  private static async callGemini(data: { content?: string; title?: string; description?: string }, apiKey: string, targetField?: string): Promise<AiAnalysisResult> {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+  private static getAnalysisPrompt(data: { content?: string; title?: string; description?: string }, targetField?: string): string {
     const { content, title, description } = data;
-
-    let prompt = '';
     const context = `
 Context Provided:
 ${title ? `- Title: ${title}` : ''}
@@ -51,10 +72,9 @@ ${description ? `- Description: ${description}` : ''}
 ${content ? `- Content: ${content}` : ''}
 `;
 
-    // Scenario 1: User wants to generate/improve specific content
     if (targetField === 'content') {
         if (content) {
-            prompt = `Act as an expert prompt engineer. Improve, polish, and expand the following prompt content to make it more effective, clear, and professional.
+            return `Act as an expert prompt engineer. Improve, polish, and expand the following prompt content to make it more effective, clear, and professional.
 ${context}
 
 Return a JSON object with a single key:
@@ -62,7 +82,7 @@ Return a JSON object with a single key:
 
 Do NOT include markdown formatting (like \`\`\`json). Just the raw JSON string.`;
         } else {
-             prompt = `Act as an expert prompt engineer. Create a high-quality, detailed prompt based on the provided Title and/or Description.
+             return `Act as an expert prompt engineer. Create a high-quality, detailed prompt based on the provided Title and/or Description.
 ${context}
 
 Return a JSON object with a single key:
@@ -70,13 +90,9 @@ Return a JSON object with a single key:
 
 Do NOT include markdown formatting (like \`\`\`json). Just the raw JSON string.`;
         }
-    } 
-    // Scenario 2: User wants to generate metadata (or everything)
-    else {
-        // If content is missing, we need to generate it too
+    } else {
         const generateContent = !content;
-        
-        prompt = `Analyze the provided context and generate metadata${generateContent ? ' AND the prompt content itself' : ''} in strict JSON format.
+        let prompt = `Analyze the provided context and generate metadata${generateContent ? ' AND the prompt content itself' : ''} in strict JSON format.
 ${context}
 
 Return a JSON object with the following keys:
@@ -91,20 +107,48 @@ Do NOT include markdown formatting (like \`\`\`json). Just the raw JSON string.`
         if (targetField) {
             prompt += `\n\nFocus especially on generating a high-quality "${targetField}".`;
         }
+        return prompt;
     }
+  }
+
+  private static parseAiResponse(text: string): AiAnalysisResult {
+      try {
+        const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        return JSON.parse(jsonStr) as AiAnalysisResult;
+      } catch (e) {
+        console.error('Failed to parse AI response:', text);
+        throw new Error('Invalid AI response format');
+      }
+  }
+
+  private static async callGemini(data: { content?: string; title?: string; description?: string }, apiKey: string, targetField?: string): Promise<AiAnalysisResult> {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    
+    const prompt = this.getAnalysisPrompt(data, targetField);
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const text = response.text();
 
-    try {
-      // Clean up potential markdown code blocks
-      const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
-      return JSON.parse(jsonStr) as AiAnalysisResult;
-    } catch (e) {
-      console.error('Failed to parse AI response:', text);
-      throw new Error('Invalid AI response format');
-    }
+    return this.parseAiResponse(text);
+  }
+
+  private static async callDeepSeek(data: { content?: string; title?: string; description?: string }, apiKey: string, targetField?: string): Promise<AiAnalysisResult> {
+    const openai = new OpenAI({
+        apiKey,
+        baseURL: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'
+    });
+
+    const prompt = this.getAnalysisPrompt(data, targetField);
+
+    const response = await openai.chat.completions.create({
+        messages: [{ role: 'user', content: prompt }],
+        model: 'deepseek-chat',
+    });
+
+    const text = response.choices[0].message.content || '';
+    return this.parseAiResponse(text);
   }
 
   private static analyzeLocally(content: string): AiAnalysisResult {
@@ -143,5 +187,107 @@ Do NOT include markdown formatting (like \`\`\`json). Just the raw JSON string.`
       category: category || 'other',
       tags: Array.from(tags).slice(0, 8) // Limit to top 8 tags
     };
+  }
+
+  /**
+   * Runs a prompt and returns a stream of generated content.
+   */
+  static async runPromptStream(prompt: string, config: { temperature?: number, maxTokens?: number, model?: string } = {}, userApiKey?: string) {
+    let modelName = config.model;
+    const deepSeekKey = userApiKey || process.env.DEEPSEEK_API_KEY || process.env.AI_API_KEY;
+    const geminiKey = userApiKey || process.env.AI_API_KEY;
+
+    // Default model selection logic
+    if (!modelName) {
+        if (process.env.DEEPSEEK_API_KEY) {
+            modelName = 'deepseek-chat';
+        } else {
+            modelName = 'gemini-pro';
+        }
+    }
+
+    if (modelName.startsWith('deepseek')) {
+        if (!deepSeekKey) throw new Error('DeepSeek API Key is required');
+
+        const openai = new OpenAI({
+            apiKey: deepSeekKey,
+            baseURL: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'
+        });
+
+        const stream = await openai.chat.completions.create({
+            model: modelName,
+            messages: [{ role: 'user', content: prompt }],
+            stream: true,
+            temperature: config.temperature,
+            max_tokens: config.maxTokens,
+        });
+
+        return this.adaptOpenAIStream(stream);
+    }
+
+    // Default to Gemini
+    if (!geminiKey) {
+      throw new Error('Gemini API Key is required');
+    }
+
+    const genAI = new GoogleGenerativeAI(geminiKey);
+    
+    const model = genAI.getGenerativeModel({ 
+        model: modelName,
+        generationConfig: {
+            temperature: config.temperature,
+            maxOutputTokens: config.maxTokens,
+        }
+    });
+
+    const result = await model.generateContentStream(prompt);
+    return result.stream;
+  }
+
+  private static async *adaptOpenAIStream(stream: any) {
+    for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content || '';
+        yield {
+            text: () => content
+        };
+    }
+  }
+
+  static async getAvailableModels() {
+    const models: Array<{ id: string, name: string, provider: string, color: string }> = [];
+    
+    // Check for DeepSeek First
+    const deepSeekKey = process.env.DEEPSEEK_API_KEY;
+    if (deepSeekKey) {
+      try {
+        const openai = new OpenAI({
+            apiKey: deepSeekKey,
+            baseURL: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'
+        });
+        const response = await openai.models.list();
+        
+        response.data.forEach(model => {
+            models.push({
+                id: model.id,
+                name: model.id.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
+                provider: 'DeepSeek',
+                color: model.id.includes('coder') ? 'bg-teal-600' : 'bg-blue-600'
+            });
+        });
+      } catch (error) {
+        console.error('Failed to fetch DeepSeek models:', error);
+      }
+    }
+
+    // Check for Gemini Second
+    if (process.env.AI_API_KEY) {
+      models.push(
+        { id: 'gemini-pro', name: 'Gemini 1.0 Pro', provider: 'Google', color: 'bg-violet-500' },
+        { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', provider: 'Google', color: 'bg-blue-500' },
+        { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', provider: 'Google', color: 'bg-indigo-600' }
+      );
+    }
+    
+    return models;
   }
 }

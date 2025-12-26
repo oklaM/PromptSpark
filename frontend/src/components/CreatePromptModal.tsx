@@ -176,7 +176,7 @@ export function CreatePromptModal({ isOpen, onClose, onSuccess, initialData }: C
           </h2>
 
           {/* Global Action Bar */}
-          <div className="flex justify-end mb-2">
+          <div className="flex justify-end gap-2 mx-4">
              <button
                 type="button"
                 onClick={() => handleSmartAnalyze()}
