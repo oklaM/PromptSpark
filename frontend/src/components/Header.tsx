@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Menu, X, Plus, LogIn, LogOut, User } from 'lucide-react';
+import { Menu, X, Plus, LogIn, LogOut, User, Settings } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useToast } from '../context/ToastContext';
 
@@ -8,9 +8,10 @@ interface HeaderProps {
   onLoginClick: () => void;
   onRegisterClick: () => void;
   onAccountClick: () => void;
+  onSettingsClick: () => void;
 }
 
-export function Header({ onCreateClick, onLoginClick, onRegisterClick, onAccountClick }: HeaderProps) {
+export function Header({ onCreateClick, onLoginClick, onRegisterClick, onAccountClick, onSettingsClick }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user } = useAuthStore();
   const { logout } = useAuthStore();
@@ -43,6 +44,14 @@ export function Header({ onCreateClick, onLoginClick, onRegisterClick, onAccount
 
           {/* Desktop Actions */}
           <div className="hidden md:flex items-center gap-4">
+            <button
+              onClick={onSettingsClick}
+              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              title="设置"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
+
             <button
               onClick={handleCreateClick}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2 transition-colors"
@@ -92,6 +101,16 @@ export function Header({ onCreateClick, onLoginClick, onRegisterClick, onAccount
         {/* Mobile Menu */}
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-gray-200 py-4 space-y-2">
+            <button
+              onClick={() => {
+                  onSettingsClick();
+                  setMobileMenuOpen(false);
+              }}
+              className="w-full px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-2"
+            >
+              <Settings className="w-4 h-4" />
+              设置
+            </button>
             <button
               onClick={handleCreateClick}
               className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2 transition-colors"

@@ -1,4 +1,5 @@
 import axiosClient from './axiosClient';
+import { useSettingsStore } from '../stores/settingsStore';
 
 export interface AiAnalysisResult {
   title?: string;
@@ -10,7 +11,19 @@ export interface AiAnalysisResult {
 
 class AiService {
   async analyzeContent(data: { content?: string; title?: string; description?: string }, targetField?: string): Promise<AiAnalysisResult> {
-    const response = await axiosClient.post('/ai/analyze', { ...data, targetField });
+    const settings = useSettingsStore.getState().config;
+    // We pass settings as 'config' object or individual fields. Backend handles both.
+    // Let's pass as config object to be safe and cleaner.
+    const response = await axiosClient.post('/ai/analyze', { 
+        ...data, 
+        targetField,
+        config: {
+            apiKey: settings.apiKey,
+            baseURL: settings.baseUrl,
+            provider: settings.provider,
+            model: settings.model
+        }
+    });
     return response.data.data;
   }
 
@@ -28,13 +41,23 @@ class AiService {
     model?: string
   ) {
     try {
+      const settings = useSettingsStore.getState().config;
+      const modelToUse = model || settings.model;
+
       // Use fetch for SSE
       const response = await fetch('/api/ai/run', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ prompt, config, model }),
+        body: JSON.stringify({ 
+            prompt, 
+            config, // Generation config (temp, etc)
+            model: modelToUse,
+            apiKey: settings.apiKey,
+            provider: settings.provider,
+            baseURL: settings.baseUrl
+        }),
       });
 
       if (!response.ok) {

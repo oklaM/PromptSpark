@@ -12,6 +12,7 @@ import { usePromptStore } from './stores/promptStore';
 import { LoginForm } from './components/LoginForm';
 import { RegisterForm } from './components/RegisterForm';
 import { AccountProfile } from './components/AccountProfile';
+import { SettingsModal } from './components/SettingsModal';
 import { ToastProvider } from './context/ToastContext';
 import { Header } from './components/Header';
 
@@ -25,6 +26,7 @@ function AppContent() {
   const [showLogin, setShowLogin] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   const { prompts, refresh } = usePrompts();
   const currentPrompt = usePromptDetail(selectedPromptId || '');
@@ -85,6 +87,7 @@ function AppContent() {
         onLoginClick={() => setShowLogin(true)}
         onRegisterClick={() => setShowRegister(true)}
         onAccountClick={() => setShowAccount(true)}
+        onSettingsClick={() => setShowSettings(true)}
       />
 
       <main className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-6 sm:py-8">
@@ -173,6 +176,12 @@ function AppContent() {
         onClose={handleModalClose}
         onSuccess={handleCreateSuccess}
         initialData={editingPrompt}
+      />
+      
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
       />
 
       {/* Login/Register/Account Modals */}

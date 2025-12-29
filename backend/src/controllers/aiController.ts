@@ -4,7 +4,7 @@ import { AiService } from '../services/aiService';
 export class AiController {
   static async analyze(req: Request, res: Response): Promise<void> {
     try {
-      const { content, title, description, targetField } = req.body;
+      const { content, title, description, targetField, config, apiKey, provider, baseURL, model } = req.body;
 
       if (!content && !title && !description) {
         res.status(400).json({
@@ -14,7 +14,15 @@ export class AiController {
         return;
       }
 
-      const result = await AiService.analyzeContent({ content, title, description }, targetField);
+      // Merge direct params into a config object
+      const aiConfig = {
+          apiKey: apiKey || config?.apiKey,
+          baseURL: baseURL || config?.baseURL,
+          provider: provider || config?.provider,
+          model: model || config?.model
+      };
+
+      const result = await AiService.analyzeContent({ content, title, description }, targetField, aiConfig);
 
       res.json({
         success: true,
@@ -30,7 +38,7 @@ export class AiController {
 
   static async runPrompt(req: Request, res: Response): Promise<void> {
     try {
-      const { prompt, config, apiKey, model } = req.body;
+      const { prompt, config, apiKey, model, provider, baseURL } = req.body;
 
       if (!prompt) {
         res.status(400).json({ success: false, message: 'Prompt is required' });
@@ -42,7 +50,13 @@ export class AiController {
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
 
-      const stream = await AiService.runPromptStream(prompt, { ...config, model }, apiKey);
+      const stream = await AiService.runPromptStream(prompt, { 
+          ...config, 
+          model, 
+          apiKey, 
+          provider, 
+          baseURL 
+      });
 
       for await (const chunk of stream) {
         const text = chunk.text();

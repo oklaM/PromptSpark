@@ -21,45 +21,61 @@ export class AiService {
    * Analyzes prompt content to generate metadata.
    * Uses external AI if configured, otherwise falls back to local heuristics.
    */
-  static async analyzeContent(data: { content?: string; title?: string; description?: string }, targetField?: string): Promise<AiAnalysisResult> {
-    const aiProvider = process.env.AI_PROVIDER;
-    const geminiKey = process.env.AI_API_KEY;
-    const deepSeekKey = process.env.DEEPSEEK_API_KEY;
+  static async analyzeContent(
+    data: { content?: string; title?: string; description?: string }, 
+    targetField?: string,
+    config?: { apiKey?: string; baseURL?: string; provider?: string; model?: string }
+  ): Promise<AiAnalysisResult> {
+    const aiProvider = (config?.provider === 'auto' ? undefined : config?.provider) || process.env.AI_PROVIDER;
     const content = data.content || '';
 
-    // 1. Try Configured Provider (If explicitly set to deepseek, or not set but deepseek key exists)
-    if ((aiProvider === 'deepseek' || !aiProvider) && deepSeekKey) {
+    // Strategy: Try the selected provider first. If it fails (or none selected), try the others in order.
+    // Order of preference for "auto" or fallback: DeepSeek -> Gemini -> Local.
+
+    let attempts = [];
+
+    // 1. Determine the first attempt based on configuration
+    if (aiProvider === 'deepseek') {
+        attempts.push('deepseek');
+    } else if (aiProvider === 'gemini') {
+        attempts.push('gemini');
+    }
+
+    // 2. Add remaining providers to the list (avoiding duplicates if they were first)
+    if (!attempts.includes('deepseek') && (config?.provider === 'deepseek' || process.env.DEEPSEEK_API_KEY)) {
+         attempts.push('deepseek');
+    }
+    if (!attempts.includes('gemini') && (config?.provider === 'gemini' || process.env.AI_API_KEY)) {
+         attempts.push('gemini');
+    }
+    
+    // Ensure deepseek is tried if "auto" and available, even if not explicitly first
+    if (attempts.length === 0) {
+        if (process.env.DEEPSEEK_API_KEY) attempts.push('deepseek');
+        if (process.env.AI_API_KEY) attempts.push('gemini');
+    }
+
+    // 3. Execute attempts
+    for (const provider of attempts) {
         try {
-            return await this.callDeepSeek(data, deepSeekKey, targetField);
+            if (provider === 'deepseek') {
+                const key = (config?.provider === 'deepseek' ? config?.apiKey : undefined) || process.env.DEEPSEEK_API_KEY;
+                if (key) {
+                    return await this.callDeepSeek(data, key, targetField, config?.baseURL, config?.model);
+                }
+            } else if (provider === 'gemini') {
+                const key = (config?.provider === 'gemini' ? config?.apiKey : undefined) || process.env.AI_API_KEY;
+                if (key) {
+                    return await this.callGemini(data, key, targetField, config?.model);
+                }
+            }
         } catch (error) {
-            console.error('AI Service Error (DeepSeek):', error);
-        }
-    } else if (aiProvider === 'gemini' && geminiKey) {
-       try {
-         return await this.callGemini(data, geminiKey, targetField);
-       } catch (error) {
-         console.error('AI Service Error (Gemini):', error);
-       }
-    }
-
-    // 2. Fallback: Try whatever key is available, prioritizing DeepSeek
-    if (deepSeekKey) {
-         try {
-            return await this.callDeepSeek(data, deepSeekKey, targetField);
-        } catch (error) {
-            console.error('AI Service Error (DeepSeek Fallback):', error);
+            console.error(`AI Service Error (${provider}):`, error);
+            // Continue to next provider
         }
     }
 
-    if (geminiKey) {
-        try {
-            return await this.callGemini(data, geminiKey, targetField);
-        } catch (error) {
-            console.error('AI Service Error (Gemini Fallback):', error);
-        }
-    }
-
-    // 3. Final Fallback: Local Heuristics
+    // 4. Final Fallback: Local Heuristics
     return this.analyzeLocally(content);
   }
 
@@ -121,9 +137,9 @@ Do NOT include markdown formatting (like \`\`\`json). Just the raw JSON string.`
       }
   }
 
-  private static async callGemini(data: { content?: string; title?: string; description?: string }, apiKey: string, targetField?: string): Promise<AiAnalysisResult> {
+  private static async callGemini(data: { content?: string; title?: string; description?: string }, apiKey: string, targetField?: string, modelName?: string): Promise<AiAnalysisResult> {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    const model = genAI.getGenerativeModel({ model: modelName || 'gemini-1.5-flash' });
     
     const prompt = this.getAnalysisPrompt(data, targetField);
 
@@ -134,17 +150,23 @@ Do NOT include markdown formatting (like \`\`\`json). Just the raw JSON string.`
     return this.parseAiResponse(text);
   }
 
-  private static async callDeepSeek(data: { content?: string; title?: string; description?: string }, apiKey: string, targetField?: string): Promise<AiAnalysisResult> {
+  private static async callDeepSeek(
+    data: { content?: string; title?: string; description?: string }, 
+    apiKey: string, 
+    targetField?: string, 
+    baseURL?: string,
+    modelName?: string
+  ): Promise<AiAnalysisResult> {
     const openai = new OpenAI({
         apiKey,
-        baseURL: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'
+        baseURL: baseURL || process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'
     });
 
     const prompt = this.getAnalysisPrompt(data, targetField);
 
     const response = await openai.chat.completions.create({
         messages: [{ role: 'user', content: prompt }],
-        model: 'deepseek-chat',
+        model: modelName || 'deepseek-chat',
     });
 
     const text = response.choices[0].message.content || '';
@@ -192,26 +214,39 @@ Do NOT include markdown formatting (like \`\`\`json). Just the raw JSON string.`
   /**
    * Runs a prompt and returns a stream of generated content.
    */
-  static async runPromptStream(prompt: string, config: { temperature?: number, maxTokens?: number, model?: string } = {}, userApiKey?: string) {
+  static async runPromptStream(
+    prompt: string, 
+    config: { temperature?: number, maxTokens?: number, model?: string, apiKey?: string, baseURL?: string, provider?: string } = {}
+  ) {
     let modelName = config.model;
-    const deepSeekKey = userApiKey || process.env.DEEPSEEK_API_KEY || process.env.AI_API_KEY;
-    const geminiKey = userApiKey || process.env.AI_API_KEY;
+    const provider = config.provider;
+    
+    // Determine provider and keys
+    const deepSeekKey = (provider === 'deepseek' ? config.apiKey : undefined) || process.env.DEEPSEEK_API_KEY;
+    const geminiKey = (provider === 'gemini' ? config.apiKey : undefined) || process.env.AI_API_KEY;
+    
+    // Generic fallback for "AI_API_KEY" if provider not specified but key passed
+    const userKey = config.apiKey;
 
-    // Default model selection logic
+    // Default model/provider selection logic if not explicit
     if (!modelName) {
-        if (process.env.DEEPSEEK_API_KEY) {
+        if (provider === 'deepseek' || (!provider && deepSeekKey)) {
             modelName = 'deepseek-chat';
         } else {
             modelName = 'gemini-pro';
         }
     }
+    
+    // DeepSeek or Generic OpenAI Compatible
+    if (provider === 'deepseek' || modelName.startsWith('deepseek') || (provider === 'openai')) {
+        const key = (provider === 'deepseek' ? deepSeekKey : userKey) || deepSeekKey; // Fallback logic
+        if (!key) throw new Error(`${provider || 'DeepSeek'} API Key is required`);
 
-    if (modelName.startsWith('deepseek')) {
-        if (!deepSeekKey) throw new Error('DeepSeek API Key is required');
+        const baseURL = config.baseURL || (provider === 'deepseek' ? (process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com') : undefined);
 
         const openai = new OpenAI({
-            apiKey: deepSeekKey,
-            baseURL: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'
+            apiKey: key,
+            baseURL: baseURL
         });
 
         const stream = await openai.chat.completions.create({
@@ -226,11 +261,12 @@ Do NOT include markdown formatting (like \`\`\`json). Just the raw JSON string.`
     }
 
     // Default to Gemini
-    if (!geminiKey) {
+    const gKey = geminiKey || userKey;
+    if (!gKey) {
       throw new Error('Gemini API Key is required');
     }
 
-    const genAI = new GoogleGenerativeAI(geminiKey);
+    const genAI = new GoogleGenerativeAI(gKey);
     
     const model = genAI.getGenerativeModel({ 
         model: modelName,
