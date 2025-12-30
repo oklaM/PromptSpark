@@ -156,14 +156,14 @@ export function PromptPlayground({ isOpen, onClose, initialPrompt, promptId }: P
 
         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
           {/* Left Column: Input & Config */}
-          <div className="w-full lg:w-1/3 flex flex-col border-r border-gray-200 bg-white">
+          <div className="w-full lg:w-1/3 flex flex-col border-b lg:border-b-0 lg:border-r border-gray-200 bg-white max-h-[40vh] lg:max-h-full">
             <div className="flex-1 p-4 flex flex-col gap-4 overflow-y-auto">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Prompt Template</label>
                 <textarea
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
-                  className="w-full h-48 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono text-sm resize-none"
+                  className="w-full h-32 lg:h-48 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono text-sm resize-none"
                   placeholder="Enter your prompt here. Use {{variable}} for dynamic inputs."
                 />
               </div>
@@ -171,7 +171,7 @@ export function PromptPlayground({ isOpen, onClose, initialPrompt, promptId }: P
               {/* Model Selection */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Select Models to Compare</label>
-                <div className="grid grid-cols-1 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2">
                   {availableModels.length === 0 ? (
                       <p className="text-sm text-gray-500 italic">Loading models...</p>
                   ) : (
@@ -270,7 +270,7 @@ export function PromptPlayground({ isOpen, onClose, initialPrompt, promptId }: P
                 {isAnyRunning ? (
                   <>
                     <RefreshCw className="w-5 h-5 animate-spin" />
-                    Running Models ({runningModels.size})...
+                    Running...
                   </>
                 ) : (
                   <>
@@ -285,9 +285,9 @@ export function PromptPlayground({ isOpen, onClose, initialPrompt, promptId }: P
           {/* Right Column: Comparison View */}
           <div className="flex-1 bg-gray-100 overflow-hidden flex flex-col">
             <div className="flex-1 overflow-x-auto">
-              <div className={`h-full flex min-w-full ${selectedModels.length > 2 ? 'w-max' : ''}`}>
+              <div className={`h-full flex min-w-full ${selectedModels.length > 1 ? 'w-max lg:w-full' : 'w-full'}`}>
                 {selectedModels.length === 0 ? (
-                  <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-4">
+                  <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-4 min-h-[300px]">
                     <Layers className="w-16 h-16 opacity-20" />
                     <p>Select at least one model to start the arena</p>
                   </div>
@@ -301,7 +301,7 @@ export function PromptPlayground({ isOpen, onClose, initialPrompt, promptId }: P
                       <div 
                         key={modelId} 
                         className={`flex flex-col border-r border-gray-200 last:border-r-0 bg-gray-900 ${
-                          selectedModels.length === 1 ? 'w-full' : 'w-96 lg:flex-1'
+                          selectedModels.length === 1 ? 'w-full' : 'w-[85vw] sm:w-96 lg:flex-1'
                         }`}
                       >
                         <div className="flex items-center justify-between px-4 py-2 border-b border-gray-800 bg-gray-800 text-gray-300 text-sm">

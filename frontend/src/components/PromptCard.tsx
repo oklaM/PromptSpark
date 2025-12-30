@@ -65,7 +65,7 @@ export function PromptCard({
   return (
     <div
       onClick={onClick}
-      className="bg-white rounded-xl shadow hover:shadow-lg transition-all p-4 cursor-pointer border border-gray-200 hover:border-blue-300 hover:scale-105 transform duration-200 flex flex-col h-full"
+      className="bg-white rounded-xl shadow md:hover:shadow-lg transition-all p-4 cursor-pointer border border-gray-200 md:hover:border-blue-300 md:hover:scale-105 transform duration-200 flex flex-col h-full active:bg-gray-50 md:active:bg-white"
     >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">

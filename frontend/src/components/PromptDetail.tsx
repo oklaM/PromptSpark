@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Edit, X, Play, Activity, Code } from 'lucide-react';
+import { Edit, X, Play, Activity, Code, Trash2 } from 'lucide-react';
 import { PermissionManagement } from './PermissionManagement';
 import { HistoryList } from './HistoryList';
 import { CommentThread } from './CommentThread';
@@ -9,6 +9,8 @@ import { PromptDiagnosis } from './PromptDiagnosis';
 import { SdkIntegrationModal } from './SdkIntegrationModal';
 import { useAuthStore } from '../stores/authStore';
 import { aiService } from '../services/aiService';
+import { promptService } from '../services/promptService';
+import { useToast } from '../context/ToastContext';
 
 interface PromptDetailProps {
   id?: string;
@@ -46,6 +48,7 @@ export function PromptDetail({
   const [showSdk, setShowSdk] = useState(false);
   const [evalStats, setEvalStats] = useState<{ total: number, good: number, bad: number, passRate: number } | null>(null);
   const { user } = useAuthStore();
+  const { show: toast } = useToast();
   const isOwner = user?.username === author;
 
   useEffect(() => {
@@ -56,6 +59,22 @@ export function PromptDetail({
 
   const handleCopyContent = () => {
     navigator.clipboard.writeText(content);
+    toast('复制成功', 'success');
+  };
+
+  const handleDelete = async () => {
+    if (!id) return;
+    const confirmed = window.confirm('确定要删除这个提示词吗？此操作不可撤销。');
+    if (!confirmed) return;
+
+    try {
+      await promptService.deletePrompt(id);
+      toast('删除成功', 'success');
+      onClose?.();
+    } catch (err) {
+      console.error('Delete failed', err);
+      toast('删除失败', 'error');
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -70,28 +89,28 @@ export function PromptDetail({
     <div className="max-w-5xl mx-auto">
       <div className="bg-white rounded-lg shadow-lg overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6 text-white">
-          <div className="flex justify-between items-start mb-4">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-4 sm:p-6 text-white">
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4">
             <div className="flex-1">
-              <h1 className="text-3xl font-bold mb-2">{title}</h1>
-              <p className="text-blue-100 text-lg">{description}</p>
+              <h1 className="text-2xl sm:text-3xl font-bold mb-2">{title}</h1>
+              <p className="text-blue-100 text-base sm:text-lg">{description}</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
               <button
                 onClick={() => setShowPlayground(true)}
-                className="flex items-center gap-1 px-3 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors font-medium backdrop-blur-sm"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-3 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors font-medium backdrop-blur-sm text-sm"
                 title="在线运行"
               >
-                <Play className="w-5 h-5 fill-current" />
-                <span className="hidden sm:inline">运行</span>
+                <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
+                <span>运行</span>
               </button>
               <button
                 onClick={() => setShowSdk(true)}
-                className="flex items-center gap-1 px-3 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors font-medium backdrop-blur-sm"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-3 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors font-medium backdrop-blur-sm text-sm"
                 title="开发者集成"
               >
-                <Code className="w-5 h-5" />
-                <span className="hidden sm:inline">SDK</span>
+                <Code className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span>SDK</span>
               </button>
               {onEdit && (
                 <button
@@ -99,7 +118,16 @@ export function PromptDetail({
                   className="p-2 text-blue-100 hover:text-white hover:bg-blue-600/50 rounded-full transition-colors"
                   title="编辑"
                 >
-                  <Edit className="w-6 h-6" />
+                  <Edit className="w-5 h-5 sm:w-6 sm:h-6" />
+                </button>
+              )}
+              {isOwner && (
+                <button
+                  onClick={handleDelete}
+                  className="p-2 text-red-200 hover:text-white hover:bg-red-600/50 rounded-full transition-colors"
+                  title="删除"
+                >
+                  <Trash2 className="w-5 h-5 sm:w-6 sm:h-6" />
                 </button>
               )}
               {onClose && (
@@ -107,7 +135,7 @@ export function PromptDetail({
                   onClick={onClose}
                   className="p-2 text-blue-100 hover:text-white hover:bg-blue-600/50 rounded-full transition-colors"
                 >
-                  <X className="w-6 h-6" />
+                  <X className="w-5 h-5 sm:w-6 sm:h-6" />
                 </button>
               )}
             </div>
@@ -117,14 +145,14 @@ export function PromptDetail({
             {tags.map((tag) => (
               <span
                 key={tag}
-                className="px-3 py-1 bg-blue-500 rounded-full text-sm"
+                className="px-2.5 py-0.5 sm:px-3 sm:py-1 bg-blue-500 rounded-full text-xs sm:text-sm"
               >
                 #{tag}
               </span>
             ))}
           </div>
 
-          <div className="flex gap-6 text-sm">
+          <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs sm:text-sm">
             <span>分类: {category || '未分类'}</span>
             <span>作者: {author}</span>
             <span>创建于: {formatDate(createdAt)}</span>
@@ -132,7 +160,7 @@ export function PromptDetail({
         </div>
 
         {/* Stats */}
-        <div className="bg-gray-50 px-6 py-3 border-b flex gap-8 text-sm text-gray-600">
+        <div className="bg-gray-50 px-4 sm:px-6 py-3 border-b flex flex-wrap gap-x-8 gap-y-3 text-xs sm:text-sm text-gray-600">
           <div className="flex items-center gap-2">
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />

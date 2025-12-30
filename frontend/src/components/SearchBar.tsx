@@ -1,7 +1,11 @@
 // React import not needed with automatic JSX runtime
 import { useFilterStore } from '../stores/filterStore';
 
-export function SearchBar() {
+interface SearchBarProps {
+  renderFilterButton?: React.ReactNode;
+}
+
+export function SearchBar({ renderFilterButton }: SearchBarProps) {
   const searchQuery = useFilterStore((state) => state.searchQuery);
   const setSearchQuery = useFilterStore((state) => state.setSearchQuery);
 
@@ -23,11 +27,16 @@ export function SearchBar() {
         </svg>
         <input
           type="text"
-          placeholder="搜索提示词... (输入标题、描述或内容)"
+          placeholder="搜索提示词..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className={`w-full pl-10 ${renderFilterButton ? 'pr-12' : 'pr-4'} py-2.5 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white`}
         />
+        {renderFilterButton && (
+          <div className="absolute right-1 top-1 bottom-1 flex items-center">
+            {renderFilterButton}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -170,42 +170,49 @@ export function CreatePromptModal({ isOpen, onClose, onSuccess, initialData }: C
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
-          <h2 className="text-xl font-bold">{initialData ? '编辑提示词' : '创建新提示词'}
-          
-          </h2>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[95vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white border-b px-4 sm:px-6 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 z-10">
+          <div className="flex justify-between items-center w-full sm:w-auto">
+            <h2 className="text-lg sm:text-xl font-bold">{initialData ? '编辑提示词' : '创建新提示词'}</h2>
+            <button
+              onClick={onClose}
+              className="sm:hidden text-gray-400 hover:text-gray-600 p-1"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
 
-          {/* Global Action Bar */}
-          <div className="flex justify-end gap-2 mx-4">
+          <div className="flex w-full sm:w-auto justify-end gap-2">
              <button
                 type="button"
                 onClick={() => handleSmartAnalyze()}
                 disabled={isAnalyzing || (!formData.content && !formData.title && !formData.description)}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium text-xs sm:text-sm"
               >
                 {isAnalyzing && !formData.content ? (
-                   <Wand2 className="w-4 h-4 animate-spin" />
+                   <Wand2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />
                 ) : (
-                   <Wand2 className="w-4 h-4" />
+                   <Wand2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 )}
-                一键生成全部信息
+                <span>AI 一键生成</span>
+              </button>
+              <button
+                onClick={onClose}
+                className="hidden sm:block text-gray-400 hover:text-gray-600 p-1"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4">
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+            <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-xs sm:text-sm">
               {error}
             </div>
           )}
@@ -213,7 +220,7 @@ export function CreatePromptModal({ isOpen, onClose, onSuccess, initialData }: C
 
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700">
                 标题 *
               </label>
               <AiButton field="title" />
@@ -225,13 +232,13 @@ export function CreatePromptModal({ isOpen, onClose, onSuccess, initialData }: C
               onChange={handleChange}
               required
               placeholder="输入提示词标题"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             />
           </div>
 
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700">
                 描述
               </label>
               <AiButton field="description" />
@@ -242,14 +249,14 @@ export function CreatePromptModal({ isOpen, onClose, onSuccess, initialData }: C
               value={formData.description}
               onChange={handleChange}
               placeholder="简短描述提示词的用途"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             />
           </div>
 
           <div>
             <div className="flex justify-between items-center mb-1">
               <div className="flex items-center gap-2">
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700">
                   提示词内容 *
                 </label>
                 <AiButton field="content" />
@@ -261,15 +268,15 @@ export function CreatePromptModal({ isOpen, onClose, onSuccess, initialData }: C
               onChange={handleChange}
               required
               placeholder="粘贴或输入完整的提示词内容"
-              rows={8}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+              rows={6}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-xs sm:text-sm"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700">
                   分类
                 </label>
                 <AiButton field="category" />
@@ -278,7 +285,7 @@ export function CreatePromptModal({ isOpen, onClose, onSuccess, initialData }: C
                 name="category"
                 value={formData.category}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               >
                 <option value="">选择分类</option>
                 <option value="writing">写作</option>
@@ -289,7 +296,7 @@ export function CreatePromptModal({ isOpen, onClose, onSuccess, initialData }: C
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                 作者
               </label>
               <input
@@ -298,14 +305,14 @@ export function CreatePromptModal({ isOpen, onClose, onSuccess, initialData }: C
                 value={formData.author}
                 onChange={handleChange}
                 placeholder="作者名称"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
             </div>
           </div>
 
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700">
                 标签 (逗号分隔)
               </label>
               <AiButton field="tags" />
@@ -316,22 +323,22 @@ export function CreatePromptModal({ isOpen, onClose, onSuccess, initialData }: C
               value={formData.tags}
               onChange={handleChange}
               placeholder="例如: AI, 创意, 实用"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             />
           </div>
 
-          <div className="flex gap-3 pt-4 border-t">
+          <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
             <button
               type="submit"
               disabled={isLoading}
-              className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 font-medium"
+              className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 font-medium text-sm"
             >
               {isLoading ? '提交中...' : initialData ? '保存修改' : '创建提示词'}
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 font-medium"
+              className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 font-medium text-sm"
             >
               取消
             </button>
