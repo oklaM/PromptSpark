@@ -1,13 +1,13 @@
-# PromptSpark 产品演进路线图 & 需求规格说明书 (v2.1)
+# PromptSpark 产品演进路线图 & 需求规格说明书 (v2.2)
 
 **日期:** 2025-12-30
-**状态:** 开发中 (Phase 3 进行中)
+**状态:** 核心功能开发完成 (Phase 4 完成)
 **目标:** 从“基础提示词库”进阶为“智能化 Prompt 工程平台”
 
 ---
 
 ## 1. 概述 (Overview)
-PromptSpark 已完成核心 CRUD、智能化辅助 (AI Copilot)、交互式运行 (Playground) 及版本对比功能的开发。当前平台已具备完整的 Prompt 编写、调试、优化和管理闭环。下一阶段重点在于 **工程化集成 (SDK)** 及 **深度评测** 能力。
+PromptSpark 已完成核心 CRUD、智能化辅助 (AI Copilot)、交互式运行 (Playground)、版本对比、评测记录 (Eval Logs) 及开发者集成 (SDK) 功能。平台现已具备“编写-调试-评测-集成”的全链路工程化能力。
 
 ---
 
@@ -61,7 +61,7 @@ PromptSpark 已完成核心 CRUD、智能化辅助 (AI Copilot)、交互式运�
 
 ---
 
-### 🛠️ P3: 工程化深度 - 版本对比与评测 (Engineering) [部分完成]
+### 🛠️ P3: 工程化深度 - 版本对比与评测 (Engineering) ✅ [已完成]
 **目标:** 服务于专业 Prompt 工程师，支持严谨的迭代过程。
 
 #### 3.1 可视化版本 Diff (Visual Diff) ✅
@@ -70,7 +70,7 @@ PromptSpark 已完成核心 CRUD、智能化辅助 (AI Copilot)、交互式运�
     *   引入 `diff` 类库。
     *   在历史记录页，提供“版本对比”视图，高亮显示差异。
 
-#### 3.2 评测记录 (Eval Logs) (未来规划) 📅
+#### 3.2 评测记录 (Eval Logs) ✅ [已完成]
 *   **用户故事:** 记录某次运行结果的满意度，用于长期分析。
 *   **功能点:**
     *   在 Playground 运行结果后，允许用户标记“Bad case”或“Good case”。
@@ -78,15 +78,15 @@ PromptSpark 已完成核心 CRUD、智能化辅助 (AI Copilot)、交互式运�
 
 ---
 
-### 🔌 P4: 开发者生态 - 集成能力 (Integration) 🚧 [待开发]
+### 🔌 P4: 开发者生态 - 集成能力 (Integration) ✅ [已完成]
 **目标:** 将 PromptSpark 作为基础设施嵌入到业务流中 (Prompt-as-a-Service)。
 
-#### 4.1 SDK / API Access
+#### 4.1 SDK / API Access ✅
 *   **用户故事:** 开发者希望在代码中直接调用最新的 Prompt，而不是硬编码在项目中。
 *   **功能点:**
-    *   提供只读 API: `GET /api/v1/sdk/prompts/{key}`。
-    *   支持按 `tag` 或 `alias` 获取（例如获取 `prod` 环境的 Prompt）。
-    *   生成 API Token 用于鉴权。
+    *   提供只读 API: `GET /api/sdk/prompts/{key}`。
+    *   支持 API Token 生成与管理。
+    *   支持 cURL 和 Python SDK 集成示例。
 
 ---
 
@@ -94,7 +94,7 @@ PromptSpark 已完成核心 CRUD、智能化辅助 (AI Copilot)、交互式运�
 
 1.  **Phase 1 (Done):** ✅ 后端 `aiService` 架构，AI 优化/润色 (Smart Refine)，自动打标。
 2.  **Phase 2 (Done):** ✅ Prompt Playground (运行测试、变量识别、模型竞技场)，评分诊断。
-3.  **Phase 3 (Done):** ✅ 版本 Diff (Visual Diff)。
-4.  **Phase 4 (Pending):** 🚧 SDK 基础接口 (P4.1) 及 评测记录 (P3.2)。
+3.  **Phase 3 (Done):** ✅ 版本 Diff (Visual Diff)，评测记录 (Eval Logs)。
+4.  **Phase 4 (Done):** ✅ SDK 基础接口，API Token 管理。
 
 ---

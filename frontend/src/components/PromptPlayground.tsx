@@ -20,7 +20,7 @@ export function PromptPlayground({ isOpen, onClose, initialPrompt, promptId }: P
   const [config, setConfig] = useState({ temperature: 0.7, maxTokens: 1024 });
   const [showSettings, setShowSettings] = useState(false);
   const [ratings, setRatings] = useState<Record<string, number | null>>({});
-  const { showToast } = useToast();
+  const { show } = useToast();
   
   const outputRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -80,10 +80,10 @@ export function PromptPlayground({ isOpen, onClose, initialPrompt, promptId }: P
         output: outputs[modelId],
         score,
       });
-      showToast('评价已保存', 'success');
+      show('评价已保存', 'success');
     } catch (err) {
       console.error('Failed to log eval', err);
-      showToast('保存评价失败', 'error');
+      show('保存评价失败', 'error');
     }
   };
 

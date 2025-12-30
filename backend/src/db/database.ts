@@ -234,6 +234,20 @@ class Database {
       )
     `);
 
+    // API Tokens 表
+    await run(`
+      CREATE TABLE IF NOT EXISTS api_tokens (
+        id TEXT PRIMARY KEY,
+        userId TEXT NOT NULL,
+        name TEXT NOT NULL,
+        token TEXT UNIQUE NOT NULL,
+        lastUsedAt TEXT,
+        createdAt TEXT NOT NULL,
+        expiresAt TEXT,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
     // 创建索引
     await run(`CREATE INDEX IF NOT EXISTS idx_prompts_category ON prompts(category)`);
     await run(`CREATE INDEX IF NOT EXISTS idx_prompts_author ON prompts(author)`);
@@ -247,6 +261,8 @@ class Database {
     await run(`CREATE INDEX IF NOT EXISTS idx_ratings_promptId ON ratings(promptId)`);
     await run(`CREATE INDEX IF NOT EXISTS idx_ratings_userId ON ratings(userId)`);
     await run(`CREATE INDEX IF NOT EXISTS idx_eval_logs_promptId ON eval_logs(promptId)`);
+    await run(`CREATE INDEX IF NOT EXISTS idx_api_tokens_userId ON api_tokens(userId)`);
+    await run(`CREATE INDEX IF NOT EXISTS idx_api_tokens_token ON api_tokens(token)`);
   }
 
   async run(sql: string, params: any[] = []): Promise<any> {
