@@ -7,6 +7,7 @@ interface PromptCardProps {
   id: string;
   title: string;
   description: string;
+  content?: string;
   category: string;
   author: string;
   isPublic?: boolean;
@@ -23,6 +24,7 @@ export function PromptCard({
   id,
   title,
   description,
+  content,
   category,
   author,
   isPublic,
@@ -87,7 +89,7 @@ export function PromptCard({
 
       <div className="flex-1">
         <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-2 line-clamp-2 min-h-[2.5rem]">{title}</h3>
-        <p className="text-gray-600 text-sm mb-3 line-clamp-2">{description}</p>
+        <p className="text-gray-600 text-sm mb-3 line-clamp-2 break-words">{description || content}</p>
 
         <div className="flex flex-wrap gap-1.5 mb-4">
           {tags.slice(0, 2).map((tag) => (
