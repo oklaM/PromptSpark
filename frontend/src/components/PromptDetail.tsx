@@ -6,6 +6,7 @@ import { CommentThread } from './CommentThread';
 import { RatingComponent } from './RatingComponent';
 import { PromptPlayground } from './PromptPlayground';
 import { PromptDiagnosis } from './PromptDiagnosis';
+import { SdkIntegrationModal } from './SdkIntegrationModal';
 import { useAuthStore } from '../stores/authStore';
 import { aiService } from '../services/aiService';
 
@@ -239,67 +240,11 @@ export function PromptDetail({
         promptId={id}
       />
 
-      {/* SDK Modal */}
-      {showSdk && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl p-6">
-            <div className="flex justify-between items-start mb-4">
-                <h3 className="text-xl font-bold">集成到应用</h3>
-                <button onClick={() => setShowSdk(false)} className="text-gray-400 hover:text-gray-600">
-                    <X className="w-6 h-6" />
-                </button>
-            </div>
-            <p className="text-sm text-gray-500 mb-6">通过 SDK API 在您的代码中直接调用此提示词。请确保在设置中创建了 API Token。</p>
-            
-            <div className="mb-4">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">cURL</label>
-                <div className="bg-gray-900 rounded-lg p-4 overflow-x-auto relative group">
-                    <code className="text-sm text-gray-100 font-mono whitespace-pre">
-                    {`curl -X GET "${window.location.origin}/api/sdk/prompts/${id}" \\
-  -H "Authorization: Bearer <YOUR_API_TOKEN>"`}
-                    </code>
-                    <button 
-                        onClick={() => navigator.clipboard.writeText(`curl -X GET "${window.location.origin}/api/sdk/prompts/${id}" -H "Authorization: Bearer <YOUR_API_TOKEN>"`)}
-                        className="absolute top-2 right-2 text-gray-500 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                        Copy
-                    </button>
-                </div>
-            </div>
-            
-            <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Python</label>
-                <div className="bg-gray-900 rounded-lg p-4 overflow-x-auto relative group">
-                    <code className="text-sm text-gray-100 font-mono whitespace-pre">
-{`import requests
-
-response = requests.get(
-    "${window.location.origin}/api/sdk/prompts/${id}",
-    headers={"Authorization": "Bearer <YOUR_API_TOKEN>"}
-)
-data = response.json()['data']
-print(data['content'])`}
-                    </code>
-                     <button 
-                        onClick={() => navigator.clipboard.writeText(`import requests\n\nresponse = requests.get(\n    "${window.location.origin}/api/sdk/prompts/${id}",\n    headers={"Authorization": "Bearer <YOUR_API_TOKEN>"}\n)\ndata = response.json()['data']\nprint(data['content'])`)}
-                        className="absolute top-2 right-2 text-gray-500 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                        Copy
-                    </button>
-                </div>
-            </div>
-            
-            <div className="mt-6 flex justify-end">
-                <button 
-                    onClick={() => setShowSdk(false)}
-                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium"
-                >
-                    关闭
-                </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <SdkIntegrationModal
+        isOpen={showSdk}
+        onClose={() => setShowSdk(false)}
+        promptId={id}
+      />
     </div>
   );
 }

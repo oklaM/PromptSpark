@@ -69,7 +69,12 @@ export class SdkController {
       // Check access
       // 1. Get user details for username check (legacy author check)
       const user = await database.get('SELECT username FROM users WHERE id = ?', [userId]);
-      if (user && user.username === prompt.author) {
+      if (!user) {
+        res.status(401).json({ success: false, message: 'Invalid token user' });
+        return;
+      }
+
+      if (user.username === prompt.author) {
         res.json({ success: true, data: prompt });
         return;
       }

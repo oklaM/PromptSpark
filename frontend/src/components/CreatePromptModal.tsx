@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { promptService } from '../services/promptService';
 import { aiService } from '../services/aiService';
 import { usePromptStore, Prompt } from '../stores/promptStore';
+import { useAuthStore } from '../stores/authStore';
 import { Wand2 } from 'lucide-react';
 
 interface CreatePromptModalProps {
@@ -13,12 +14,13 @@ interface CreatePromptModalProps {
 
 export function CreatePromptModal({ isOpen, onClose, onSuccess, initialData }: CreatePromptModalProps) {
   const { addPrompt, updatePrompt } = usePromptStore();
+  const { user } = useAuthStore();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     content: '',
     category: '',
-    author: 'Anonymous',
+    author: user?.username || 'Anonymous',
     tags: '',
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -41,11 +43,11 @@ export function CreatePromptModal({ isOpen, onClose, onSuccess, initialData }: C
         description: '',
         content: '',
         category: '',
-        author: 'Anonymous',
+        author: user?.username || 'Anonymous',
         tags: '',
       });
     }
-  }, [initialData, isOpen]);
+  }, [initialData, isOpen, user]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;

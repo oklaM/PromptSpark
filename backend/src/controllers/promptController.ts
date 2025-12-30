@@ -1,12 +1,26 @@
 import { Request, Response } from 'express';
 import { PromptModel, CreatePromptDTO } from '../models/Prompt';
 import { PromptVersionModel } from '../models/PromptVersion';
+import { PermissionModel } from '../models/Permission';
 
 export class PromptController {
   static async create(req: Request, res: Response): Promise<void> {
     try {
       const data: CreatePromptDTO = req.body;
+      const currentUser = (req as any).user;
+
+      // Use authenticated user as author
+      if (currentUser) {
+        data.author = currentUser.username;
+      }
+      
       const prompt = await PromptModel.create(data);
+
+      // Automatically grant owner permission if created by a user
+      if (currentUser) {
+        await PermissionModel.grant(prompt.id, currentUser.id, 'owner', currentUser.id);
+      }
+
       res.status(201).json({
         success: true,
         data: prompt,
@@ -74,7 +88,30 @@ export class PromptController {
     try {
       const { id } = req.params;
       const data: Partial<CreatePromptDTO> = req.body;
-      const updatedPrompt = await PromptModel.update(id, data, req.body.author);
+      
+      // Ensure only the author (or authorized user) can update
+      const existingPrompt = await PromptModel.getById(id);
+      if (!existingPrompt) {
+        res.status(404).json({ success: false, message: 'Prompt not found' });
+        return;
+      }
+
+      const currentUser = (req as any).user;
+      if (currentUser && existingPrompt.author === 'Anonymous') {
+          // Claim the prompt
+          await PromptModel.claim(id, currentUser.username);
+          // Grant owner permission
+          await PermissionModel.grant(id, currentUser.id, 'owner', currentUser.id);
+      } else if (currentUser && existingPrompt.author !== currentUser.username) {
+          // Check for editor permission
+          const hasPermission = await PermissionModel.check(id, currentUser.id, ['owner', 'editor']);
+          if (!hasPermission) {
+            res.status(403).json({ success: false, message: 'No permission to update this prompt' });
+            return;
+          }
+      }
+
+      const updatedPrompt = await PromptModel.update(id, data, currentUser?.username || req.body.author);
 
       res.json({
         success: true,

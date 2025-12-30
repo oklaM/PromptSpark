@@ -312,4 +312,12 @@ export class PromptModel {
     const all = await this.getAll(1, 10000);
     return all.data;
   }
+
+  // 认领提示词
+  static async claim(id: string, username: string): Promise<void> {
+    await database.run(
+      `UPDATE prompts SET author = ? WHERE id = ? AND author = 'Anonymous'`,
+      [username, id]
+    );
+  }
 }
