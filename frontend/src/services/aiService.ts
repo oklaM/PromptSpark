@@ -9,6 +9,14 @@ export interface AiAnalysisResult {
   content?: string;
 }
 
+export interface PromptDiagnosis {
+  score: number;
+  clarity: string;
+  safety: string;
+  logic: string;
+  suggestions: string[];
+}
+
 class AiService {
   async analyzeContent(data: { content?: string; title?: string; description?: string }, targetField?: string): Promise<AiAnalysisResult> {
     const settings = useSettingsStore.getState().config;
@@ -17,6 +25,20 @@ class AiService {
     const response = await axiosClient.post('/ai/analyze', { 
         ...data, 
         targetField,
+        config: {
+            apiKey: settings.apiKey,
+            baseURL: settings.baseUrl,
+            provider: settings.provider,
+            model: settings.model
+        }
+    });
+    return response.data.data;
+  }
+
+  async diagnosePrompt(content: string): Promise<PromptDiagnosis> {
+    const settings = useSettingsStore.getState().config;
+    const response = await axiosClient.post('/ai/diagnose', {
+        content,
         config: {
             apiKey: settings.apiKey,
             baseURL: settings.baseUrl,

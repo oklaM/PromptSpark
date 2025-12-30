@@ -5,6 +5,7 @@ import { HistoryList } from './HistoryList';
 import { CommentThread } from './CommentThread';
 import { RatingComponent } from './RatingComponent';
 import { PromptPlayground } from './PromptPlayground';
+import { PromptDiagnosis } from './PromptDiagnosis';
 import { useAuthStore } from '../stores/authStore';
 
 interface PromptDetailProps {
@@ -148,6 +149,11 @@ export function PromptDetail({
                 </svg>
               </button>
             </div>
+          </div>
+
+          {/* AI Diagnosis Section */}
+          <div className="mb-8">
+            <PromptDiagnosis content={content} />
           </div>
 
           <div className="flex items-center gap-4 text-xs text-gray-500 mb-8">

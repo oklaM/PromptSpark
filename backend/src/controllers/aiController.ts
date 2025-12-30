@@ -36,6 +36,36 @@ export class AiController {
     }
   }
 
+  static async diagnose(req: Request, res: Response): Promise<void> {
+    try {
+        const { content, config, apiKey, provider, baseURL, model } = req.body;
+
+        if (!content) {
+            res.status(400).json({ success: false, message: 'Content is required for diagnosis' });
+            return;
+        }
+
+        const aiConfig = {
+            apiKey: apiKey || config?.apiKey,
+            baseURL: baseURL || config?.baseURL,
+            provider: provider || config?.provider,
+            model: model || config?.model
+        };
+
+        const result = await AiService.diagnosePrompt(content, aiConfig);
+
+        res.json({
+            success: true,
+            data: result
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error instanceof Error ? error.message : 'Diagnosis failed'
+        });
+    }
+  }
+
   static async runPrompt(req: Request, res: Response): Promise<void> {
     try {
       const { prompt, config, apiKey, model, provider, baseURL } = req.body;

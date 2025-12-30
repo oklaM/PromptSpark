@@ -9,6 +9,14 @@ export interface AiAnalysisResult {
   content?: string;
 }
 
+export interface PromptDiagnosis {
+  score: number;
+  clarity: string;
+  safety: string;
+  logic: string;
+  suggestions: string[];
+}
+
 export class AiService {
   private static readonly KEYWORDS = {
     coding: ['function', 'code', 'api', 'class', 'import', 'const', 'var', 'let', 'return', 'interface', 'sql', 'database', 'react', 'node', 'python', 'java', 'css', 'html', 'json', 'xml', 'script'],
@@ -16,6 +24,102 @@ export class AiService {
     analysis: ['analyze', 'data', 'report', 'summary', 'chart', 'trend', 'statistics', 'forecast', 'review', 'audit'],
     other: []
   };
+
+  /**
+   * Diagnoses prompt quality and returns a score with detailed feedback.
+   */
+  static async diagnosePrompt(
+    content: string,
+    config?: { apiKey?: string; baseURL?: string; provider?: string; model?: string }
+  ): Promise<PromptDiagnosis> {
+     const diagnosisPrompt = `
+Act as a strict Prompt Engineer. Analyze the following prompt for Clarity, Safety, and Logical consistency.
+Give a score from 0 to 100 based on overall quality.
+
+Prompt to Analyze:
+"""
+${content}
+"""
+
+Return a strict JSON object with the following structure:
+{
+  "score": number, // 0-100
+  "clarity": "Short analysis of clarity",
+  "safety": "Short analysis of potential safety issues",
+  "logic": "Short analysis of logical gaps",
+  "suggestions": ["Suggestion 1", "Suggestion 2", "Suggestion 3"]
+}
+
+Do NOT include markdown formatting. Just the raw JSON string.
+`;
+
+     // Reuse analyzeContent logic to route request but with custom prompt
+     // Since analyzeContent is hardcoded for metadata, we need a similar routing logic here or reuse the internal callers.
+     // Let's copy the robust routing logic for now.
+     
+     const aiProvider = (config?.provider === 'auto' ? undefined : config?.provider) || process.env.AI_PROVIDER;
+     let attempts = [];
+
+    if (aiProvider === 'deepseek') attempts.push('deepseek');
+    else if (aiProvider === 'gemini') attempts.push('gemini');
+
+    if (!attempts.includes('deepseek') && (config?.provider === 'deepseek' || process.env.DEEPSEEK_API_KEY)) attempts.push('deepseek');
+    if (!attempts.includes('gemini') && (config?.provider === 'gemini' || process.env.AI_API_KEY)) attempts.push('gemini');
+    
+    if (attempts.length === 0) {
+        if (process.env.DEEPSEEK_API_KEY) attempts.push('deepseek');
+        if (process.env.AI_API_KEY) attempts.push('gemini');
+    }
+
+    let rawResponse = '';
+
+    for (const provider of attempts) {
+        try {
+            if (provider === 'deepseek') {
+                const key = (config?.provider === 'deepseek' ? config?.apiKey : undefined) || process.env.DEEPSEEK_API_KEY;
+                if (key) {
+                   const openai = new OpenAI({ apiKey: key, baseURL: config?.baseURL || process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com' });
+                   const res = await openai.chat.completions.create({
+                       messages: [{ role: 'user', content: diagnosisPrompt }],
+                       model: config?.model || 'deepseek-chat',
+                   });
+                   rawResponse = res.choices[0].message.content || '';
+                   break;
+                }
+            } else if (provider === 'gemini') {
+                const key = (config?.provider === 'gemini' ? config?.apiKey : undefined) || process.env.AI_API_KEY;
+                if (key) {
+                    const genAI = new GoogleGenerativeAI(key);
+                    const model = genAI.getGenerativeModel({ model: config?.model || 'gemini-1.5-flash' });
+                    const res = await model.generateContent(diagnosisPrompt);
+                    rawResponse = res.response.text();
+                    break;
+                }
+            }
+        } catch (error) {
+            console.error(`Diagnosis Error (${provider}):`, error);
+        }
+    }
+
+    if (!rawResponse) {
+        // Fallback mock response if AI fails
+        return {
+            score: 0,
+            clarity: "AI Diagnosis unavailable.",
+            safety: "Unable to check safety.",
+            logic: "Unable to check logic.",
+            suggestions: ["Check your API configuration."]
+        };
+    }
+
+    try {
+        const jsonStr = rawResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+        return JSON.parse(jsonStr) as PromptDiagnosis;
+    } catch (e) {
+        console.error('Failed to parse diagnosis response', rawResponse);
+        throw new Error('Invalid diagnosis format');
+    }
+  }
 
   /**
    * Analyzes prompt content to generate metadata.
