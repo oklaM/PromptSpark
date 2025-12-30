@@ -217,6 +217,23 @@ class Database {
       )
     `);
 
+    // Eval Logs 评测记录表
+    await run(`
+      CREATE TABLE IF NOT EXISTS eval_logs (
+        id TEXT PRIMARY KEY,
+        promptId TEXT,
+        modelId TEXT NOT NULL,
+        variables TEXT, -- JSON string
+        content TEXT NOT NULL, -- Snapshot of prompt
+        output TEXT,
+        score INTEGER, -- 1=Good, 0=Bad, null=Unrated
+        latency INTEGER, -- ms
+        tokens INTEGER,
+        createdAt TEXT NOT NULL,
+        FOREIGN KEY (promptId) REFERENCES prompts(id) ON DELETE SET NULL
+      )
+    `);
+
     // 创建索引
     await run(`CREATE INDEX IF NOT EXISTS idx_prompts_category ON prompts(category)`);
     await run(`CREATE INDEX IF NOT EXISTS idx_prompts_author ON prompts(author)`);
@@ -229,6 +246,7 @@ class Database {
     await run(`CREATE INDEX IF NOT EXISTS idx_discussions_promptId ON discussions(promptId)`);
     await run(`CREATE INDEX IF NOT EXISTS idx_ratings_promptId ON ratings(promptId)`);
     await run(`CREATE INDEX IF NOT EXISTS idx_ratings_userId ON ratings(userId)`);
+    await run(`CREATE INDEX IF NOT EXISTS idx_eval_logs_promptId ON eval_logs(promptId)`);
   }
 
   async run(sql: string, params: any[] = []): Promise<any> {

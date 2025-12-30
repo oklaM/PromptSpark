@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Edit, X, Play } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Edit, X, Play, Activity } from 'lucide-react';
 import { PermissionManagement } from './PermissionManagement';
 import { HistoryList } from './HistoryList';
 import { CommentThread } from './CommentThread';
@@ -7,6 +7,7 @@ import { RatingComponent } from './RatingComponent';
 import { PromptPlayground } from './PromptPlayground';
 import { PromptDiagnosis } from './PromptDiagnosis';
 import { useAuthStore } from '../stores/authStore';
+import { aiService } from '../services/aiService';
 
 interface PromptDetailProps {
   id?: string;
@@ -41,8 +42,15 @@ export function PromptDetail({
 }: PromptDetailProps) {
   const [showHistory, setShowHistory] = useState(false);
   const [showPlayground, setShowPlayground] = useState(false);
+  const [evalStats, setEvalStats] = useState<{ total: number, good: number, bad: number, passRate: number } | null>(null);
   const { user } = useAuthStore();
   const isOwner = user?.username === author;
+
+  useEffect(() => {
+    if (id) {
+      aiService.getEvalStats(id).then(setEvalStats).catch(console.error);
+    }
+  }, [id, showPlayground]); // Re-fetch when playground closes in case user added evals
 
   const handleCopyContent = () => {
     navigator.clipboard.writeText(content);
@@ -128,6 +136,14 @@ export function PromptDetail({
             </svg>
             点赞: {likes}
           </div>
+          {evalStats && evalStats.total > 0 && (
+            <div className="flex items-center gap-2" title={`${evalStats.good} good / ${evalStats.bad} bad`}>
+              <Activity className="w-4 h-4 text-green-600" />
+              <span className={evalStats.passRate >= 0.8 ? 'text-green-600 font-medium' : evalStats.passRate >= 0.5 ? 'text-yellow-600' : 'text-red-600'}>
+                通过率: {Math.round(evalStats.passRate * 100)}% ({evalStats.total} 次测试)
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Main Content Area */}
@@ -211,6 +227,7 @@ export function PromptDetail({
         isOpen={showPlayground}
         onClose={() => setShowPlayground(false)}
         initialPrompt={content}
+        promptId={id}
       />
     </div>
   );

@@ -17,6 +17,17 @@ export interface PromptDiagnosis {
   suggestions: string[];
 }
 
+export interface EvalLogData {
+  promptId?: string;
+  modelId: string;
+  variables?: Record<string, string>;
+  content: string;
+  output: string;
+  score?: number; // 1 | 0
+  latency?: number;
+  tokens?: number;
+}
+
 class AiService {
   async analyzeContent(data: { content?: string; title?: string; description?: string }, targetField?: string): Promise<AiAnalysisResult> {
     const settings = useSettingsStore.getState().config;
@@ -125,6 +136,16 @@ class AiService {
     } catch (error) {
       onError?.(error instanceof Error ? error : new Error('Unknown error'));
     }
+  }
+
+  async logEval(data: EvalLogData) {
+    const response = await axiosClient.post('/evals', data);
+    return response.data;
+  }
+
+  async getEvalStats(promptId: string) {
+    const response = await axiosClient.get(`/prompts/${promptId}/evals/stats`);
+    return response.data.data;
   }
 }
 

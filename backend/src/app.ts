@@ -5,6 +5,7 @@ import promptRoutes from './routes/promptRoutes';
 import authRoutes from './routes/authRoutes';
 import collaborationRoutes from './routes/collaborationRoutes';
 import aiRoutes from './routes/aiRoutes';
+import evalRoutes from './routes/evalRoutes';
 import { database } from './db/database';
 
 const app: Express = express();
@@ -16,6 +17,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // API Routes
 app.use('/api', promptRoutes);
+app.use('/api', evalRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/collaboration', collaborationRoutes);
 app.use('/api/ai', aiRoutes);

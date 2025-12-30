@@ -1,14 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { aiService } from '../services/aiService';
-import { X, Play, Settings, RefreshCw, Layers, Check, Copy } from 'lucide-react';
+import { X, Play, Settings, RefreshCw, Layers, Check, Copy, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
 
 interface PromptPlaygroundProps {
   isOpen: boolean;
   onClose: () => void;
   initialPrompt: string;
+  promptId?: string;
 }
 
-export function PromptPlayground({ isOpen, onClose, initialPrompt }: PromptPlaygroundProps) {
+export function PromptPlayground({ isOpen, onClose, initialPrompt, promptId }: PromptPlaygroundProps) {
   const [prompt, setPrompt] = useState(initialPrompt);
   const [availableModels, setAvailableModels] = useState<Array<{ id: string, name: string, provider: string, color: string }>>([]);
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
@@ -17,12 +19,16 @@ export function PromptPlayground({ isOpen, onClose, initialPrompt }: PromptPlayg
   const [variables, setVariables] = useState<Record<string, string>>({});
   const [config, setConfig] = useState({ temperature: 0.7, maxTokens: 1024 });
   const [showSettings, setShowSettings] = useState(false);
+  const [ratings, setRatings] = useState<Record<string, number | null>>({});
+  const { showToast } = useToast();
   
   const outputRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
     if (isOpen) {
       setPrompt(initialPrompt);
+      setOutputs({});
+      setRatings({});
       aiService.getModels().then(models => {
         setAvailableModels(models);
         if (models.length > 0 && selectedModels.length === 0) {
@@ -55,6 +61,32 @@ export function PromptPlayground({ isOpen, onClose, initialPrompt }: PromptPlayg
     );
   };
 
+  const handleRate = async (modelId: string, score: number) => {
+    if (!outputs[modelId]) return;
+    
+    setRatings(prev => ({ ...prev, [modelId]: score }));
+
+    try {
+      let promptToSend = prompt;
+      Object.entries(variables).forEach(([key, val]) => {
+        promptToSend = promptToSend.replace(new RegExp(`{{${key}}}`, 'g'), val);
+      });
+
+      await aiService.logEval({
+        promptId: promptId,
+        modelId,
+        variables,
+        content: promptToSend,
+        output: outputs[modelId],
+        score,
+      });
+      showToast('评价已保存', 'success');
+    } catch (err) {
+      console.error('Failed to log eval', err);
+      showToast('保存评价失败', 'error');
+    }
+  };
+
   const handleRun = async () => {
     if (runningModels.size > 0 || selectedModels.length === 0) return;
     
@@ -62,6 +94,7 @@ export function PromptPlayground({ isOpen, onClose, initialPrompt }: PromptPlayg
     const initialOutputs: Record<string, string> = {};
     selectedModels.forEach(id => initialOutputs[id] = '');
     setOutputs(initialOutputs);
+    setRatings({});
     setRunningModels(new Set(selectedModels));
 
     // Interpolate variables
@@ -262,6 +295,8 @@ export function PromptPlayground({ isOpen, onClose, initialPrompt }: PromptPlayg
                   selectedModels.map(modelId => {
                     const model = availableModels.find(m => m.id === modelId);
                     const isRunning = runningModels.has(modelId);
+                    const rating = ratings[modelId];
+
                     return (
                       <div 
                         key={modelId} 
@@ -275,6 +310,24 @@ export function PromptPlayground({ isOpen, onClose, initialPrompt }: PromptPlayg
                             <span className="font-semibold">{model?.name}</span>
                           </div>
                           <div className="flex items-center gap-2">
+                            {outputs[modelId] && !isRunning && (
+                                <>
+                                  <button 
+                                    onClick={() => handleRate(modelId, 1)}
+                                    className={`p-1 transition-colors ${rating === 1 ? 'text-green-400' : 'text-gray-500 hover:text-green-400'}`}
+                                    title="Good response"
+                                  >
+                                    <ThumbsUp className={`w-4 h-4 ${rating === 1 ? 'fill-current' : ''}`} />
+                                  </button>
+                                  <button 
+                                    onClick={() => handleRate(modelId, 0)}
+                                    className={`p-1 transition-colors ${rating === 0 ? 'text-red-400' : 'text-gray-500 hover:text-red-400'}`}
+                                    title="Bad response"
+                                  >
+                                    <ThumbsDown className={`w-4 h-4 ${rating === 0 ? 'fill-current' : ''}`} />
+                                  </button>
+                                </>
+                            )}
                             {isRunning && <RefreshCw className="w-3 h-3 animate-spin text-blue-400" />}
                             <button 
                               onClick={() => { navigator.clipboard.writeText(outputs[modelId] || ''); }}
