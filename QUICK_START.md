@@ -1,126 +1,64 @@
-# PromptSpark - 快速开始指南
+# PromptSpark - 快速开始指南 (v2.3)
 
 ## ⚡ 3 分钟启动项目
 
-### 第 1 步：安装依赖（约 1 分钟）
+### 第 1 步：安装依赖
 ```bash
 cd /home/rowan/Projects/PromptSpark
 npm install
 ```
 
-### 第 2 步：启动开发服务器（约 1 分钟）
+### 第 2 步：启动开发服务器
 ```bash
 npm run dev
 ```
 
 你会看到：
-```
-✓ 后端服务器运行在 http://localhost:5000
-✓ 前端应用运行在 http://localhost:3000
-```
-
-### 第 3 步：打开浏览器
-访问 http://localhost:3000 即可使用！
+- 后端: http://localhost:5000
+- 前端: http://localhost:3000
 
 ---
 
-## 🎯 首次体验步骤
+## 🎯 首次体验核心链路
 
-1. **创建提示词**
-   - 点击页面右上角的 "新建提示词" 按钮
-   - 填写标题、描述、内容等信息
-   - 选择分类（编程、写作、分析、其他）
-   - 添加标签（用逗号分隔）
-   - 点击 "创建提示词"
+1. **AI 辅助创建**
+   - 点击 "新建提示词"
+   - 输入一个简单的想法 (如 "写个 Python 脚本")
+   - 点击 ✨ **一键生成全部信息**，查看 AI 如何为您扩写和打标。
 
-2. **浏览和搜索**
-   - 在搜索栏输入关键词快速查找
-   - 在左侧边栏选择分类或标签进行筛选
-   - 点击提示词卡片查看详细信息
+2. **交互式调试 (Playground)**
+   - 进入提示词详情
+   - 点击 **"运行"** 按钮
+   - 输入测试变量，同屏对比不同模型 (OpenAI, Gemini 等) 的输出效果。
 
-3. **与提示词互动**
-   - 点击心形图标点赞
-   - 在详情页面一键复制内容
-   - 查看浏览次数和点赞统计
+3. **开发者集成**
+   - 在详情页点击 **"SDK"**
+   - 复制 cURL 或 Python 代码
+   - 使用在 "设置 -> 开发者 API" 中生成的 Token 进行调用。
 
 ---
 
-## �� 核心功能
+## 📋 功能矩阵
 
-| 功能 | 说明 |
+| 模块 | 核心功能 |
 |------|------|
-| 📝 创建 | 创建新的提示词并自动保存 |
-| 🔍 搜索 | 全文搜索标题、描述和内容 |
-| 🏷️ 分类 | 4 个预设分类快速筛选 |
-| #️⃣ 标签 | 6 个热门标签选择 |
-| ❤️ 点赞 | 实时更新点赞统计 |
-| 👁️ 统计 | 自动记录浏览次数 |
-| 📋 详情 | 完整展示提示词内容 |
-| 🔄 版本 | 自动记录修改历史 |
+| 📝 管理 | CRUD、版本回滚、批量导出、可视化 Diff |
+| ✨ 智能 | AI 智能润色、自动打标、Prompt 评分诊断 |
+| 🚀 调试 | 多模型竞技场、动态变量表单、流式输出 |
+| 🔌 集成 | API Token 管理、标准 RESTful SDK |
+| 🤝 协作 | 细粒度权限 (RBAC)、评论区、评分系统 |
 
 ---
 
 ## 🛠️ 常用命令
 
 ```bash
-# 开发模式（同时启动前后端）
-npm run dev
-
-# 仅启动后端
-npm run dev:backend
-
-# 仅启动前端
-npm run dev:frontend
-
-# 生产构建
-npm run build
-
-# 启动生产服务
-npm start
+npm run dev          # 同时启动前后端
+npm run build        # 生产构建
+npm start            # 启动生产服务
+npm test             # 运行测试 (vitest)
 ```
 
 ---
 
-## 📖 完整文档
-
-- **[README.md](./README.md)** - 项目完整说明
-- **[API.md](./docs/API.md)** - REST API 文档
-- **[DEVELOPMENT.md](./docs/DEVELOPMENT.md)** - 开发规范
-- **[DEPLOYMENT.md](./docs/DEPLOYMENT.md)** - 部署指南
-- **[PROJECT_SUMMARY.md](./PROJECT_SUMMARY.md)** - 项目总结
-
----
-
-## 🐛 遇到问题？
-
-### 问题：端口被占用
-```bash
-# 更改端口（修改 vite.config.ts 和 backend/src/index.ts）
-```
-
-### 问题：数据库错误
-```bash
-# 删除数据库文件重新创建
-rm -rf ./data/promptspark.db
-npm run dev
-```
-
-### 问题：依赖安装失败
-```bash
-# 清除 npm 缓存
-npm cache clean --force
-npm install
-```
-
----
-
-## 🎓 下一步学习
-
-1. 查看 `frontend/src/App.tsx` - 了解前端结构
-2. 查看 `backend/src/index.ts` - 了解后端结构
-3. 阅读 `docs/API.md` - 学习 API 使用
-4. 参考 `docs/DEVELOPMENT.md` - 学习开发规范
-
----
-
-**祝你使用愉快！如有问题，查看完整文档即可。** 🚀
+**祝你使用愉快！如有问题，查看 [README.md](./README.md) 获取更多信息。** 🚀

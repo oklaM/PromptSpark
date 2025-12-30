@@ -1,4 +1,4 @@
-# API 使用指南
+# API 使用指南 (v2.3)
 
 ## 概述
 
@@ -13,319 +13,110 @@ PromptSpark API 遵循 RESTful 原则，采用 JSON 格式进行数据交互。�
 }
 ```
 
-## 认证
+## 认证 (Authentication)
 
-当前版本暂未实现用户认证，所有端点都可公开访问。未来版本将添加 JWT 认证机制。
+大多数写操作 (POST/PUT/DELETE) 均需要 JWT 认证。请在 HTTP Header 中包含以下信息：
+
+```http
+Authorization: Bearer <your_jwt_token>
+```
+
+此外，开发者 SDK 接口使用专用的 API Token：
+```http
+Authorization: Bearer <your_api_token_sk_ps_...>
+```
 
 ---
 
-## 提示词 API
+## 核心提示词 API
 
-### 1. 创建提示词
+### 1. 创建提示词 (Auth Required)
+`POST /api/prompts`
 
+### 2. 获取列表与搜索
+`GET /api/prompts`
+`GET /api/prompts/search?query=...`
+
+### 3. 获取详情
+`GET /api/prompts/:id`
+
+---
+
+## 智能化辅助 API (AI Copilot)
+
+### 1. 内容分析与自动生成
 **请求**
 ```http
-POST /api/prompts
+POST /api/ai/analyze
 Content-Type: application/json
 
 {
-  "title": "编写高质量的代码评论",
-  "description": "帮助生成清晰、有用的代码评论",
-  "content": "你是一个资深的代码审查专家。当我给你提供代码片段时，请生成包含以下内容的代码评论...",
-  "category": "编程",
-  "author": "张三",
-  "tags": ["代码审查", "最佳实践", "编程"],
-  "isPublic": true
+  "content": "简单指令...",
+  "targetField": "description" // 可选: title, description, tags, category
 }
 ```
+**说明**: 后端将调用配置的 LLM 模型对内容进行理解并返回生成的元数据。
 
-**响应**
-```json
-{
-  "success": true,
-  "data": {
-    "id": "uuid",
-    "title": "编写高质量的代码评论",
-    "description": "帮助生成清晰、有用的代码评论",
-    "content": "你是一个资深的代码审查专家...",
-    "category": "编程",
-    "author": "张三",
-    "isPublic": true,
-    "views": 0,
-    "likes": 0,
-    "tags": ["代码审查", "最佳实践", "编程"],
-    "createdAt": "2024-12-10T10:00:00Z",
-    "updatedAt": "2024-12-10T10:00:00Z"
-  },
-  "message": "Prompt created successfully"
-}
-```
-
-### 2. 获取所有提示词
-
+### 2. Prompt 诊断
 **请求**
 ```http
-GET /api/prompts?page=1&limit=20
-```
-
-**参数**
-| 参数 | 类型 | 默认值 | 描述 |
-|------|------|--------|------|
-| page | int | 1 | 页码 |
-| limit | int | 20 | 每页数量 |
-
-**响应**
-```json
-{
-  "success": true,
-  "data": [
-    { ... },
-    { ... }
-  ],
-  "pagination": {
-    "page": 1,
-    "limit": 20,
-    "total": 150
-  }
-}
-```
-
-### 3. 获取单个提示词
-
-**请求**
-```http
-GET /api/prompts/{id}
-```
-
-**说明**：自动增加浏览次数
-
-**响应**
-```json
-{
-  "success": true,
-  "data": { ... }
-}
-```
-
-### 4. 搜索提示词
-
-**请求**
-```http
-GET /api/prompts/search?query=关键词&category=编程&tags=AI,工作
-```
-
-**参数**
-| 参数 | 类型 | 必需 | 描述 |
-|------|------|------|------|
-| query | string | ✓ | 搜索关键词 |
-| category | string | ✗ | 分类过滤 |
-| tags | string | ✗ | 标签过滤（逗号分隔） |
-
-**响应**
-```json
-{
-  "success": true,
-  "data": [ ... ],
-  "count": 5
-}
-```
-
-### 5. 更新提示词
-
-**请求**
-```http
-PUT /api/prompts/{id}
+POST /api/ai/diagnose
 Content-Type: application/json
 
 {
-  "title": "新标题（可选）",
-  "description": "新描述（可选）",
-  "content": "新内容（可选）",
-  "category": "新分类（可选）",
-  "author": "编辑者信息"
+  "content": "提示词全文..."
 }
 ```
+**说明**: 返回包含评分及改进建议的诊断报告。
 
-**说明**：
-- 更新 content 时会自动创建版本记录
-- author 字段用于记录修改者
+---
 
-**响应**
-```json
-{
-  "success": true,
-  "data": { ... },
-  "message": "Prompt updated successfully"
-}
-```
+## 开发者 SDK API
 
-### 6. 删除提示词
-
+### 1. 获取提示词内容 (Token Required)
 **请求**
 ```http
-DELETE /api/prompts/{id}
+GET /api/sdk/prompts/:id
+Authorization: Bearer sk-ps-xxxxxx
 ```
-
-**说明**：使用软删除，数据不会被物理删除
-
-**响应**
-```json
-{
-  "success": true,
-  "message": "Prompt deleted successfully"
-}
-```
-
-### 7. 切换点赞状态
-
-**请求**
-```http
-POST /api/prompts/{id}/like
-Content-Type: application/json
-
-{
-  "liked": true
-}
-```
-
-**参数**
-| 参数 | 类型 | 描述 |
-|------|------|------|
-| liked | boolean | true 表示点赞，false 表示取消点赞 |
-
-**响应**
-```json
-{
-  "success": true,
-  "data": { ... },
-  "message": "Like status updated"
-}
-```
+**说明**: 面向开发者集成，仅支持公开提示词或 Token 所属用户的私有提示词。
 
 ---
 
-## 错误处理
+## 评测与日志 API
 
-### 常见错误码
+### 1. 记录评测结果 (Auth Required)
+`POST /api/evals`
+参数: `promptId`, `modelId`, `content`, `output`, `score` (1 为好, 0 为差)。
 
-| HTTP 状态码 | 错误信息 | 说明 |
-|------------|--------|------|
-| 400 | Bad Request | 请求参数不合法 |
-| 404 | Not Found | 资源不存在 |
-| 500 | Internal Server Error | 服务器错误 |
-
-### 错误响应示例
-
-```json
-{
-  "success": false,
-  "message": "Prompt not found",
-  "error": "详细错误信息（仅开发环境）"
-}
-```
+### 2. 获取统计信息
+`GET /api/prompts/:id/evals/stats`
+返回通过率、测试总数等。
 
 ---
 
-## 使用示例
+## 令牌管理 API (Auth Required)
 
-### JavaScript/Node.js
-
-```javascript
-// 创建提示词
-const response = await fetch('http://localhost:5000/api/prompts', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    title: '标题',
-    description: '描述',
-    content: '内容',
-    category: '分类',
-    author: '作者',
-    tags: ['标签1', '标签2']
-  })
-});
-
-const result = await response.json();
-console.log(result);
-```
-
-### Python
-
-```python
-import requests
-
-# 搜索提示词
-response = requests.get(
-  'http://localhost:5000/api/prompts/search',
-  params={
-    'query': '关键词',
-    'category': '编程'
-  }
-)
-
-prompts = response.json()['data']
-```
-
-### cURL
-
-```bash
-# 获取所有提示词
-curl -X GET "http://localhost:5000/api/prompts?page=1&limit=10"
-
-# 创建新提示词
-curl -X POST "http://localhost:5000/api/prompts" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "标题",
-    "description": "描述",
-    "content": "内容",
-    "category": "编程",
-    "author": "作者",
-    "tags": ["标签1", "标签2"]
-  }'
-```
-
----
-
-## 速率限制
-
-当前版本未实现速率限制。生产环境建议配置：
-- 每 IP 每分钟最多 60 个请求
-- 每 IP 每小时最多 1000 个请求
-
----
-
-## 最佳实践
-
-1. **使用分页**：大量数据时使用 page 和 limit 参数
-2. **错误处理**：始终检查 success 字段
-3. **缓存策略**：对频繁访问的数据实现客户端缓存
-4. **搜索优化**：使用合适的搜索关键词和过滤条件
-5. **并发控制**：避免同时发送过多请求
+- `GET /api/tokens`: 列出当前用户的所有 Token。
+- `POST /api/tokens`: 创建新 Token。
+- `DELETE /api/tokens/:id`: 撤销 Token。
 
 ---
 
 ## 版本历史
 
+### v2.3.0 (2025-12-30)
+- ✓ MVC 架构重构，逻辑迁移至 Model 层。
+- ✓ 强制身份验证与所有权自动关联。
+- ✓ 提示词“认领”机制。
+
+### v2.2.0 (2025-12-29)
+- ✓ Developer SDK 基础能力。
+- ✓ Eval Logs 评测记录。
+
+### v2.1.0 (2025-12-28)
+- ✓ AI Copilot (诊断、智能润色、自动打标)。
+- ✓ Prompt Playground (交互式调试、变量识别)。
+
 ### v2.0.0 (2025-12-11)
-- ✓ Team Collaboration (Permissions, Comments, Discussions, Ratings)
-- ✓ Export/Import (JSON/CSV/MD)
-- ✓ Prompt Duplication
-
-### v1.0.0 (2024-12-10)
-- ✓ Basic CRUD
-- ✓ Search and Filtering
-- ✓ Views and Likes
-- ✓ Version History
-
-### Planned Features
-- [ ] User Authentication (JWT)
-- [ ] Prompt Favorites
-- [ ] API Rate Limiting
-- [ ] AI Copilot (Smart Refine)
-
----
-
-## Team Collaboration API
-
-For detailed documentation on Collaboration features (Permissions, Comments, Discussions, Ratings), please refer to [COLLABORATION.md](./COLLABORATION.md).
+- ✓ Team Collaboration (Permissions, Comments, Discussions).
