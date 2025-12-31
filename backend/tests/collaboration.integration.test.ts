@@ -1,11 +1,15 @@
 import express from 'express';
 import request from 'supertest';
 import collaborationRoutes from '../src/routes/collaborationRoutes';
+import { database } from '../src/db/database';
 
 describe('Collaboration API Integration Tests', () => {
   let app: express.Application;
 
-  beforeAll(() => {
+  beforeAll(async () => {
+    // Initialize database (connect and create tables)
+    await database.initialize();
+
     // Create Express app for testing
     app = express();
     app.use(express.json());
@@ -18,6 +22,10 @@ describe('Collaboration API Integration Tests', () => {
 
     // Register routes
     app.use('/api/collaboration', collaborationRoutes);
+  });
+
+  afterAll(async () => {
+    await database.close();
   });
 
   describe('API Route Structure', () => {
