@@ -174,7 +174,7 @@ export const createComment = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error creating comment:', error);
-    if ((error as any).code === 'SQLITE_CONSTRAINT') {
+    if ((error as any).code === '23505') {
       return res.status(400).json({ error: '无法评论：提示词不存在或用户无效' });
     }
     res.status(500).json({ error: '评论创建失败' });
@@ -298,7 +298,7 @@ export const createDiscussion = async (req: Request, res: Response) => {
     res.json({ success: true, discussionId: id });
   } catch (error) {
     console.error('Error creating discussion:', error);
-    if ((error as any).code === 'SQLITE_CONSTRAINT') {
+    if ((error as any).code === '23505') {
       return res.status(400).json({ error: '无法创建讨论：提示词不存在或用户无效' });
     }
     res.status(500).json({ error: '讨论创建失败' });
@@ -367,7 +367,7 @@ export const submitRating = async (req: Request, res: Response) => {
     res.json({ success: true, ratingId: id });
   } catch (error) {
     console.error('Error submitting rating:', error);
-    if ((error as any).code === 'SQLITE_CONSTRAINT') {
+    if ((error as any).code === '23505') {
       return res.status(400).json({ error: '无法提交评分：提示词不存在或用户无效' });
     }
     res.status(500).json({ error: '评分提交失败' });
