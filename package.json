@@ -17,7 +17,8 @@
     "test:frontend": "npm test -w frontend",
     "test:watch": "concurrently \"npm run test:watch -w backend\" \"npm run test:watch -w frontend\"",
     "test:coverage": "npm run test:coverage -w backend && npm run test:coverage -w frontend",
-    "lint": "npm run lint -w backend && npm run lint -w frontend"
+    "lint": "npm run lint -w backend && npm run lint -w frontend",
+    "prepare": "husky"
   },
   "workspaces": [
     "backend",
@@ -25,7 +26,22 @@
     "extension"
   ],
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "@commitlint/cli": "^19.6.1",
+    "@commitlint/config-conventional": "^19.6.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.2.11"
+  },
+  "lint-staged": {
+    "backend/**/*.{ts,js}": [
+      "npm run lint -w backend"
+    ],
+    "frontend/**/*.{ts,tsx}": [
+      "npm run lint -w frontend"
+    ],
+    "extension/**/*.{ts,tsx}": [
+      "npm run build -w extension"
+    ]
   },
   "dependencies": {
     "pg": "^8.16.3"
