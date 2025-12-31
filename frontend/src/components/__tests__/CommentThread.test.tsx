@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CommentThread } from '../CommentThread';
 import * as collaborationService from '../../services/collaborationService';
+import { ToastProvider } from '../../context/ToastContext';
 
 jest.mock('../../services/collaborationService');
 jest.mock('../../stores/authStore', () => ({
@@ -53,8 +54,12 @@ describe('CommentThread Component', () => {
     });
   });
 
+  const renderWithToast = (ui: React.ReactElement) => {
+    return render(<ToastProvider>{ui}</ToastProvider>);
+  };
+
   test('should render comment thread section', () => {
-    render(<CommentThread promptId={"1"} />);
+    renderWithToast(<CommentThread promptId={"1"} />);
     // wait for loading to finish and then check that the comment input exists
     return waitFor(() => {
       expect(screen.getByPlaceholderText(/添加您的评论.../)).toBeInTheDocument();
@@ -62,7 +67,7 @@ describe('CommentThread Component', () => {
   });
 
   test('should display all comments', async () => {
-    render(<CommentThread promptId={"1"} />);
+    renderWithToast(<CommentThread promptId={"1"} />);
 
     await waitFor(() => {
       expect(screen.getByText('Great prompt!')).toBeInTheDocument();
@@ -71,7 +76,7 @@ describe('CommentThread Component', () => {
   });
 
   test('should display nested replies under parent comment', async () => {
-    render(<CommentThread promptId={"1"} />);
+    renderWithToast(<CommentThread promptId={"1"} />);
 
     await waitFor(() => {
       // reply button exists and clicking it renders a nested CommentThread (a textarea)
@@ -87,7 +92,7 @@ describe('CommentThread Component', () => {
 
   test('should create new comment on submit', async () => {
     const user = userEvent.setup();
-    render(<CommentThread promptId={"1"} />);
+    renderWithToast(<CommentThread promptId={"1"} />);
 
     await waitFor(() => expect(screen.getByPlaceholderText(/添加您的评论.../)).toBeInTheDocument());
     const commentInput = screen.getByPlaceholderText(/添加您的评论.../);
@@ -107,7 +112,7 @@ describe('CommentThread Component', () => {
 
   test('should create reply to parent comment', async () => {
     const user = userEvent.setup();
-    render(<CommentThread promptId={"1"} />);
+    renderWithToast(<CommentThread promptId={"1"} />);
 
     await waitFor(() => {
       expect(screen.getByText('Great prompt!')).toBeInTheDocument();
@@ -129,7 +134,7 @@ describe('CommentThread Component', () => {
 
   test('should like a comment', async () => {
     const user = userEvent.setup();
-    render(<CommentThread promptId={"1"} />);
+    renderWithToast(<CommentThread promptId={"1"} />);
 
     await waitFor(() => {
       expect(screen.getByText('Great prompt!')).toBeInTheDocument();
@@ -155,7 +160,7 @@ describe('CommentThread Component', () => {
     const user = userEvent.setup();
     // mock confirm dialog to allow deletion
     (global as any).confirm = jest.fn(() => true);
-    render(<CommentThread promptId={"1"} />);
+    renderWithToast(<CommentThread promptId={"1"} />);
 
     await waitFor(() => {
       expect(screen.getByText('Great prompt!')).toBeInTheDocument();
@@ -170,7 +175,7 @@ describe('CommentThread Component', () => {
   });
 
   test('should not show delete button for other user comments', async () => {
-    render(<CommentThread promptId={"1"} />);
+    renderWithToast(<CommentThread promptId={"1"} />);
 
     await waitFor(() => {
       expect(screen.getByText('Great prompt!')).toBeInTheDocument();
@@ -185,7 +190,7 @@ describe('CommentThread Component', () => {
       new Promise(() => {}) // Never resolves
     );
 
-    render(<CommentThread promptId={"1"} />);
+    renderWithToast(<CommentThread promptId={"1"} />);
     expect(screen.getByText(/加载中/)).toBeInTheDocument();
   });
 
@@ -195,7 +200,7 @@ describe('CommentThread Component', () => {
       new Error(errorMessage)
     );
 
-    render(<CommentThread promptId={"1"} />);
+    renderWithToast(<CommentThread promptId={"1"} />);
 
     await waitFor(() => {
       // component logs error and shows empty state
@@ -204,7 +209,7 @@ describe('CommentThread Component', () => {
   });
 
   test('should display author information', async () => {
-    render(<CommentThread promptId={"1"} />);
+    renderWithToast(<CommentThread promptId={"1"} />);
 
     await waitFor(() => {
       expect(screen.getByText(/Alice/i)).toBeInTheDocument();
@@ -213,7 +218,7 @@ describe('CommentThread Component', () => {
   });
 
   test('should display comment timestamps', async () => {
-    render(<CommentThread promptId={"1"} />);
+    renderWithToast(<CommentThread promptId={"1"} />);
 
     await waitFor(() => {
       const timestamps = screen.getAllByText(/2024/);
@@ -222,7 +227,7 @@ describe('CommentThread Component', () => {
   });
 
   test('should display likes count', async () => {
-    render(<CommentThread promptId={"1"} />);
+    renderWithToast(<CommentThread promptId={"1"} />);
 
     await waitFor(() => {
       expect(screen.getByText(/👍\s*5/)).toBeInTheDocument();

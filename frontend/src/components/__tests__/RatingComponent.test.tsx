@@ -2,6 +2,7 @@ import { render, screen, waitFor, fireEvent, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { RatingComponent } from '../RatingComponent';
 import * as collaborationService from '../../services/collaborationService';
+import { ToastProvider } from '../../context/ToastContext';
 
 jest.mock('../../services/collaborationService');
 jest.mock('../../stores/authStore', () => ({
@@ -65,26 +66,31 @@ describe('RatingComponent', () => {
     (collaborationService.deleteRating as jest.Mock).mockResolvedValue({});
   });
 
+  const renderWithToast = (ui: React.ReactElement) => {
+    return render(<ToastProvider>{ui}</ToastProvider>);
+  };
+
   test('should render rating component', () => {
-    render(<RatingComponent promptId={"1"} />);
+    renderWithToast(<RatingComponent promptId={"1"} />);
     expect(screen.getByText(/评分和反馈/)).toBeInTheDocument();
   });
 
   test('should display star rating input', async () => {
     const user = userEvent.setup();
-    render(<RatingComponent promptId={"1"} />);
+    renderWithToast(<RatingComponent promptId={"1"} />);
     // open rating form first
     const openBtn = screen.getByRole('button', { name: /发表评分|📝/i });
     await user.click(openBtn);
     const submitButton = await screen.findByRole('button', { name: /提交评分|提交中.../i });
     const form = submitButton.closest('form') as HTMLElement;
-    const stars = within(form).getAllByText('⭐');
+    // Initial state is 0, so all stars are empty '☆'
+    const stars = within(form).getAllByText('☆');
     expect(stars.length).toBeGreaterThanOrEqual(5);
   });
 
   test('should display multi-dimension score inputs', async () => {
     const user = userEvent.setup();
-    render(<RatingComponent promptId={"1"} />);
+    renderWithToast(<RatingComponent promptId={"1"} />);
     // open rating form first
     const openBtn = screen.getByRole('button', { name: /发表评分|📝/i });
     await user.click(openBtn);
@@ -96,22 +102,24 @@ describe('RatingComponent', () => {
 
   test('should update star rating on click', async () => {
     const user = userEvent.setup();
-    render(<RatingComponent promptId={"1"} />);
+    renderWithToast(<RatingComponent promptId={"1"} />);
     // open form
     const openBtn = screen.getByRole('button', { name: /发表评分|📝/i });
     await user.click(openBtn);
     const submitButton = screen.getByRole('button', { name: /提交评分|提交中.../i });
     const form = submitButton.closest('form') as HTMLElement;
-    const stars = within(form).getAllByText('⭐');
-    await user.click(stars[4]); // Click 5th star
+    // Initial state: empty stars
+    const emptyStars = within(form).getAllByText('☆');
+    await user.click(emptyStars[4]); // Click 5th star
 
-    // after clicking, there should be at least one selected star (yellow)
-    expect(document.querySelectorAll('.text-yellow-400').length).toBeGreaterThanOrEqual(1);
+    // After clicking, 5 stars should become filled '⭐'
+    const filledStars = within(form).getAllByText('⭐');
+    expect(filledStars.length).toBe(5);
   });
 
   test('should update helpfulness score', async () => {
     const user = userEvent.setup();
-    render(<RatingComponent promptId={"1"} />);
+    renderWithToast(<RatingComponent promptId={"1"} />);
     const openBtn = screen.getByRole('button', { name: /发表评分|📝/i });
     await user.click(openBtn);
 
@@ -124,7 +132,7 @@ describe('RatingComponent', () => {
 
   test('should update accuracy score', async () => {
     const user = userEvent.setup();
-    render(<RatingComponent promptId={"1"} />);
+    renderWithToast(<RatingComponent promptId={"1"} />);
     const openBtn = screen.getByRole('button', { name: /发表评分|📝/i });
     await user.click(openBtn);
 
@@ -137,7 +145,7 @@ describe('RatingComponent', () => {
 
   test('should update relevance score', async () => {
     const user = userEvent.setup();
-    render(<RatingComponent promptId={"1"} />);
+    renderWithToast(<RatingComponent promptId={"1"} />);
     const openBtn = screen.getByRole('button', { name: /发表评分|📝/i });
     await user.click(openBtn);
 
@@ -150,12 +158,12 @@ describe('RatingComponent', () => {
 
   test('should submit rating on button click', async () => {
     const user = userEvent.setup();
-    render(<RatingComponent promptId={"1"} />);
+    renderWithToast(<RatingComponent promptId={"1"} />);
     const openBtn = screen.getByRole('button', { name: /发表评分|📝/i });
     await user.click(openBtn);
     const submitButton = screen.getByRole('button', { name: /提交评分|提交中.../i });
     const form = submitButton.closest('form') as HTMLElement;
-    const stars = within(form).getAllByText('⭐');
+    const stars = within(form).getAllByText('☆');
     await user.click(stars[4]);
     await user.click(submitButton);
 
@@ -165,7 +173,7 @@ describe('RatingComponent', () => {
   });
 
   test('should display rating statistics', async () => {
-    render(<RatingComponent promptId={"1"} />);
+    renderWithToast(<RatingComponent promptId={"1"} />);
 
     await waitFor(() => {
       expect(screen.getByText(/4\.5/)).toBeInTheDocument();
@@ -174,7 +182,7 @@ describe('RatingComponent', () => {
   });
 
   test('should display average dimension scores', async () => {
-    render(<RatingComponent promptId={"1"} />);
+    renderWithToast(<RatingComponent promptId={"1"} />);
 
     await waitFor(() => {
       expect(screen.getByText(/有用性/)).toBeInTheDocument();
@@ -184,7 +192,7 @@ describe('RatingComponent', () => {
   });
 
   test('should display rating distribution chart', async () => {
-    render(<RatingComponent promptId={"1"} />);
+    renderWithToast(<RatingComponent promptId={"1"} />);
 
     await waitFor(() => {
       expect(screen.getByText(/5 ⭐/)).toBeInTheDocument();
@@ -192,7 +200,7 @@ describe('RatingComponent', () => {
   });
 
   test('should display user ratings list', async () => {
-    render(<RatingComponent promptId={"1"} />);
+    renderWithToast(<RatingComponent promptId={"1"} />);
 
     await waitFor(() => {
       expect(screen.getByText(/User One/)).toBeInTheDocument();
@@ -215,7 +223,7 @@ describe('RatingComponent', () => {
     (collaborationService.getPromptRatings as jest.Mock).mockResolvedValue([userRating]);
 
     const user = userEvent.setup();
-    render(<RatingComponent promptId={"1"} />);
+    renderWithToast(<RatingComponent promptId={"1"} />);
 
     await waitFor(() => {
       expect(screen.getByText(/test-user|test-user/)).toBeInTheDocument();
@@ -232,7 +240,7 @@ describe('RatingComponent', () => {
   });
 
   test('should not show delete button for other ratings', async () => {
-    render(<RatingComponent promptId={"1"} />);
+    renderWithToast(<RatingComponent promptId={"1"} />);
 
     await waitFor(() => {
       expect(screen.getByText(/User One/)).toBeInTheDocument();
@@ -244,7 +252,7 @@ describe('RatingComponent', () => {
 
   test('should validate score is between 1 and 5', async () => {
     const user = userEvent.setup();
-    render(<RatingComponent promptId={"1"} />);
+    renderWithToast(<RatingComponent promptId={"1"} />);
     
     const openBtn = screen.getByRole('button', { name: /发表评分|📝/i });
     await user.click(openBtn);
@@ -258,7 +266,7 @@ describe('RatingComponent', () => {
 
   test('should validate dimension scores are between 0 and 100', async () => {
     const user = userEvent.setup();
-    render(<RatingComponent promptId={"1"} />);
+    renderWithToast(<RatingComponent promptId={"1"} />);
     const openBtn = screen.getByRole('button', { name: /发表评分|📝/i });
     await user.click(openBtn);
     const sliders = screen.getAllByRole('slider');
@@ -279,7 +287,7 @@ describe('RatingComponent', () => {
       new Promise(() => {}) // Never resolves
     );
 
-    render(<RatingComponent promptId={"1"} />);
+    renderWithToast(<RatingComponent promptId={"1"} />);
     
     expect(screen.getByText(/暂无评分/)).toBeInTheDocument();
   });
@@ -289,7 +297,7 @@ describe('RatingComponent', () => {
       new Error('Failed to load ratings')
     );
 
-    render(<RatingComponent promptId={"1"} />);
+    renderWithToast(<RatingComponent promptId={"1"} />);
 
     await waitFor(() => {
       expect(screen.getByText(/暂无评分|错误/)).toBeTruthy();
@@ -298,13 +306,13 @@ describe('RatingComponent', () => {
 
   test('should clear form after successful submission', async () => {
     const user = userEvent.setup();
-    render(<RatingComponent promptId={"1"} />);
+    renderWithToast(<RatingComponent promptId={"1"} />);
     const openBtn = screen.getByRole('button', { name: /发表评分|📝/i });
     await user.click(openBtn);
 
     const submitButton = screen.getByRole('button', { name: /提交评分/i });
     const form = submitButton.closest('form') as HTMLElement;
-    const stars = within(form).getAllByText('⭐');
+    const stars = within(form).getAllByText('☆');
     await user.click(stars[4]);
     await user.click(submitButton);
 

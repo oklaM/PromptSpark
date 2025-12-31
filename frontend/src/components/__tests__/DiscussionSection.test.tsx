@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DiscussionSection } from '../DiscussionSection';
 import * as collaborationService from '../../services/collaborationService';
+import { ToastProvider } from '../../context/ToastContext';
 
 jest.mock('../../services/collaborationService');
 jest.mock('../../stores/authStore', () => ({
@@ -55,14 +56,18 @@ describe('DiscussionSection Component', () => {
     });
   });
 
+  const renderWithToast = (ui: React.ReactElement) => {
+    return render(<ToastProvider>{ui}</ToastProvider>);
+  };
+
   test('should render discussion section', () => {
-    render(<DiscussionSection promptId={"1"} />);
+    renderWithToast(<DiscussionSection promptId={"1"} />);
     expect(screen.getByText(/💬 讨论区/)).toBeInTheDocument();
   });
 
   test('should display create discussion form', async () => {
     const user = userEvent.setup();
-    render(<DiscussionSection promptId={"1"} />);
+    renderWithToast(<DiscussionSection promptId={"1"} />);
     // by default a button to open the form should be visible
     expect(screen.getByRole('button', { name: /开启新讨论/ })).toBeInTheDocument();
     // open form and check fields by placeholder (labels are not associated)
@@ -73,7 +78,7 @@ describe('DiscussionSection Component', () => {
   });
 
   test('should display all discussions', async () => {
-    render(<DiscussionSection promptId={"1"} />);
+    renderWithToast(<DiscussionSection promptId={"1"} />);
 
     await waitFor(() => {
       expect(screen.getByText('How to improve?')).toBeInTheDocument();
@@ -83,7 +88,7 @@ describe('DiscussionSection Component', () => {
 
   test('should create new discussion on form submit', async () => {
     const user = userEvent.setup();
-    render(<DiscussionSection promptId={"1"} />);
+    renderWithToast(<DiscussionSection promptId={"1"} />);
     // open form
     await user.click(screen.getByRole('button', { name: /开启新讨论/ }));
 
@@ -101,7 +106,7 @@ describe('DiscussionSection Component', () => {
   });
 
   test('should display discussion status badge', async () => {
-    render(<DiscussionSection promptId={"1"} />);
+    renderWithToast(<DiscussionSection promptId={"1"} />);
 
     await waitFor(() => {
       expect(screen.getByText(/开放中/)).toBeInTheDocument();
@@ -111,7 +116,7 @@ describe('DiscussionSection Component', () => {
 
   test('should change discussion status', async () => {
     const user = userEvent.setup();
-    render(<DiscussionSection promptId={"1"} />);
+    renderWithToast(<DiscussionSection promptId={"1"} />);
 
     await waitFor(() => {
       expect(screen.getByText('How to improve?')).toBeInTheDocument();
@@ -127,7 +132,7 @@ describe('DiscussionSection Component', () => {
   });
 
   test('should display discussion author and creation date', async () => {
-    render(<DiscussionSection promptId={"1"} />);
+    renderWithToast(<DiscussionSection promptId={"1"} />);
 
     await waitFor(() => {
       expect(screen.getByText(/Alice/i)).toBeInTheDocument();
@@ -138,7 +143,7 @@ describe('DiscussionSection Component', () => {
   });
 
   test('should display replies count', async () => {
-    render(<DiscussionSection promptId={"1"} />);
+    renderWithToast(<DiscussionSection promptId={"1"} />);
 
     await waitFor(() => {
       // comment counts are displayed as numbers with a following '条评论'
@@ -150,7 +155,7 @@ describe('DiscussionSection Component', () => {
 
   test('should display comment thread when discussion is expanded', async () => {
     const user = userEvent.setup();
-    render(<DiscussionSection promptId={"1"} />);
+    renderWithToast(<DiscussionSection promptId={"1"} />);
 
     await waitFor(() => {
       expect(screen.getByText('How to improve?')).toBeInTheDocument();
@@ -167,7 +172,7 @@ describe('DiscussionSection Component', () => {
       new Promise(() => {}) // Never resolves
     );
 
-    render(<DiscussionSection promptId={"1"} />);
+    renderWithToast(<DiscussionSection promptId={"1"} />);
     expect(screen.getByText(/暂无讨论/)).toBeInTheDocument();
   });
 
@@ -176,7 +181,7 @@ describe('DiscussionSection Component', () => {
       new Error('Failed to load discussions')
     );
 
-    render(<DiscussionSection promptId={"1"} />);
+    renderWithToast(<DiscussionSection promptId={"1"} />);
 
     await waitFor(() => {
       expect(screen.getByText(/暂无讨论/)).toBeInTheDocument();
@@ -185,7 +190,7 @@ describe('DiscussionSection Component', () => {
 
   test('should clear form after successful submission', async () => {
     const user = userEvent.setup();
-    render(<DiscussionSection promptId={"1"} />);
+    renderWithToast(<DiscussionSection promptId={"1"} />);
 
     await user.click(screen.getByRole('button', { name: /开启新讨论/ }));
     const titleInput = screen.getByPlaceholderText(/输入讨论标题/) as HTMLInputElement;
@@ -204,7 +209,7 @@ describe('DiscussionSection Component', () => {
 
   test('should display discussion content in expanded view', async () => {
     const user = userEvent.setup();
-    render(<DiscussionSection promptId={"1"} />);
+    renderWithToast(<DiscussionSection promptId={"1"} />);
 
     await waitFor(() => {
       expect(screen.getByText('How to improve?')).toBeInTheDocument();
