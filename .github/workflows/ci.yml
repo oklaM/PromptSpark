@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Use Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install Dependencies
+      run: npm install
+      
+    # 如果项目中有 lint 脚本，可以在这里启用
+    # - name: Lint
+    #   run: npm run lint --if-present
+      
+    - name: Build Backend
+      run: npm run build -w backend
+      
+    - name: Build Frontend
+      run: npm run build -w frontend
+      
+    - name: Build Extension
+      run: npm run build -w extension
+
+    - name: Run Tests
+      # 确保 package.json 中有 test 脚本
+      run: npm test
