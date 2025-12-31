@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "PromptSpark Copilot",
+  "version": "1.0.0",
+  "description": "Your AI Prompt library at your fingertips.",
+  "action": {
+    "default_popup": "index.html",
+    "default_icon": {
+      "16": "icon16.svg",
+      "48": "icon48.svg",
+      "128": "icon128.svg"
+    }
+  },
+  "side_panel": {
+    "default_path": "index.html"
+  },
+  "permissions": [
+    "storage",
+    "clipboardWrite",
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "http://localhost:5000/*"
+  ],
+  "icons": {
+    "16": "icon16.svg",
+    "48": "icon48.svg",
+    "128": "icon128.svg"
+  }
+}
