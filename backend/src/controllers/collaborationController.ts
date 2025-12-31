@@ -19,7 +19,7 @@ export const grantPermission = async (req: Request, res: Response) => {
 
     // 验证权限
     const ownerPerm = await database.get(
-      'SELECT * FROM permissions WHERE promptId = ? AND userId = ? AND role = ?',
+      'SELECT * FROM permissions WHERE "promptId" = ? AND "userId" = ? AND role = ?',
       [promptId, currentUserId, 'owner']
     );
 
@@ -35,9 +35,14 @@ export const grantPermission = async (req: Request, res: Response) => {
     const now = new Date().toISOString();
 
     await database.run(
-      `INSERT OR REPLACE INTO permissions 
-       (id, promptId, userId, role, grantedBy, grantedAt) 
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO permissions 
+       (id, "promptId", "userId", role, "grantedBy", "grantedAt") 
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT ("promptId", "userId") DO UPDATE SET
+       role = excluded.role,
+       "grantedBy" = excluded."grantedBy",
+       "grantedAt" = excluded."grantedAt",
+       "revokedAt" = NULL`,
       [id, promptId, userId, role, currentUserId, now]
     );
 
@@ -63,7 +68,7 @@ export const revokePermission = async (req: Request, res: Response) => {
     }
 
     const ownerPerm = await database.get(
-      'SELECT * FROM permissions WHERE promptId = ? AND userId = ? AND role = ?',
+      'SELECT * FROM permissions WHERE "promptId" = ? AND "userId" = ? AND role = ?',
       [permission.promptId, currentUserId, 'owner']
     );
 
@@ -72,7 +77,7 @@ export const revokePermission = async (req: Request, res: Response) => {
     }
 
     await database.run(
-      'UPDATE permissions SET revokedAt = ? WHERE id = ?',
+      'UPDATE permissions SET "revokedAt" = ? WHERE id = ?',
       [new Date().toISOString(), permissionId]
     );
 
@@ -88,10 +93,10 @@ export const getPromptPermissions = async (req: Request, res: Response) => {
     const { promptId } = req.params;
 
     const permissions = await database.all(
-      `SELECT p.*, u.displayName, u.username 
+      `SELECT p.*, u."displayName", u.username 
        FROM permissions p
-       LEFT JOIN users u ON p.userId = u.id
-       WHERE p.promptId = ? AND p.revokedAt IS NULL`,
+       LEFT JOIN users u ON p."userId" = u.id
+       WHERE p."promptId" = ? AND p."revokedAt" IS NULL`,
       [promptId]
     );
 
@@ -110,7 +115,7 @@ export const checkUserPermission = async (req: Request, res: Response) => {
 
     const permission = await database.get(
       `SELECT * FROM permissions 
-       WHERE promptId = ? AND userId = ? AND revokedAt IS NULL`,
+       WHERE "promptId" = ? AND "userId" = ? AND "revokedAt" IS NULL`,
       [promptId, userId]
     );
 
@@ -139,7 +144,7 @@ export const createComment = async (req: Request, res: Response) => {
 
     await database.run(
       `INSERT INTO comments 
-       (id, promptId, userId, userName, content, parentId, createdAt, updatedAt) 
+       (id, "promptId", "userId", "userName", content, "parentId", "createdAt", "updatedAt") 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, promptId, userId, userName, content, parentId || null, now, now]
     );
@@ -147,12 +152,12 @@ export const createComment = async (req: Request, res: Response) => {
     // 更新讨论评论数
     if (parentId) {
       const discussion = await database.get(
-        'SELECT id FROM discussions WHERE id = (SELECT id FROM discussions LIMIT 1) AND promptId = ?',
+        'SELECT id FROM discussions WHERE id = (SELECT id FROM discussions LIMIT 1) AND "promptId" = ?',
         [promptId]
       );
       if (discussion) {
         await database.run(
-          'UPDATE discussions SET commentCount = commentCount + 1, lastCommentAt = ? WHERE promptId = ?',
+          'UPDATE discussions SET "commentCount" = "commentCount" + 1, "lastCommentAt" = ? WHERE "promptId" = ?',
           [now, promptId]
         );
       }
@@ -188,19 +193,19 @@ export const getComments = async (req: Request, res: Response) => {
 
     let sql = `
       SELECT c.*, 
-        (SELECT COUNT(*) FROM comments r WHERE r.parentId = c.id AND r.deletedAt IS NULL) as replyCount
+        (SELECT COUNT(*) FROM comments r WHERE r."parentId" = c.id AND r."deletedAt" IS NULL) as "replyCount"
       FROM comments c 
-      WHERE c.promptId = ? AND c.deletedAt IS NULL`;
+      WHERE c."promptId" = ? AND c."deletedAt" IS NULL`;
     const params: any[] = [promptId];
 
     if (parentId) {
-      sql += ` AND c.parentId = ?`;
+      sql += ` AND c."parentId" = ?`;
       params.push(parentId);
     } else {
-      sql += ` AND c.parentId IS NULL`;
+      sql += ` AND c."parentId" IS NULL`;
     }
 
-    sql += ` ORDER BY c.createdAt DESC`;
+    sql += ` ORDER BY c."createdAt" DESC`;
 
     const comments = await database.all(sql, params);
     res.json(comments);
@@ -229,7 +234,7 @@ export const deleteComment = async (req: Request, res: Response) => {
     }
 
     await database.run(
-      'UPDATE comments SET deletedAt = ? WHERE id = ?',
+      'UPDATE comments SET "deletedAt" = ? WHERE id = ?',
       [new Date().toISOString(), commentId]
     );
 
@@ -246,13 +251,13 @@ export const likeComment = async (req: Request, res: Response) => {
     const userId = (req as any).user?.id;
 
     const existing = await database.get(
-      'SELECT * FROM comment_likes WHERE commentId = ? AND userId = ?',
+      'SELECT * FROM comment_likes WHERE "commentId" = ? AND "userId" = ?',
       [commentId, userId]
     );
 
     if (existing) {
       await database.run(
-        'DELETE FROM comment_likes WHERE commentId = ? AND userId = ?',
+        'DELETE FROM comment_likes WHERE "commentId" = ? AND "userId" = ?',
         [commentId, userId]
       );
       await database.run(
@@ -262,7 +267,7 @@ export const likeComment = async (req: Request, res: Response) => {
       res.json({ success: true, liked: false });
     } else {
       await database.run(
-        'INSERT INTO comment_likes (commentId, userId, createdAt) VALUES (?, ?, ?)',
+        'INSERT INTO comment_likes ("commentId", "userId", "createdAt") VALUES (?, ?, ?)',
         [commentId, userId, new Date().toISOString()]
       );
       await database.run(
@@ -290,7 +295,7 @@ export const createDiscussion = async (req: Request, res: Response) => {
 
     await database.run(
       `INSERT INTO discussions 
-       (id, promptId, title, description, initiatorId, initiatorName, createdAt, updatedAt) 
+       (id, "promptId", title, description, "initiatorId", "initiatorName", "createdAt", "updatedAt") 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, promptId, title, description, userId, userName, now, now]
     );
@@ -310,7 +315,7 @@ export const getDiscussions = async (req: Request, res: Response) => {
     const { promptId } = req.params;
 
     const discussions = await database.all(
-      `SELECT * FROM discussions WHERE promptId = ? ORDER BY lastCommentAt DESC`,
+      `SELECT * FROM discussions WHERE "promptId" = ? ORDER BY "lastCommentAt" DESC`,
       [promptId]
     );
 
@@ -331,7 +336,7 @@ export const updateDiscussionStatus = async (req: Request, res: Response) => {
     }
 
     await database.run(
-      'UPDATE discussions SET status = ?, updatedAt = ? WHERE id = ?',
+      'UPDATE discussions SET status = ?, "updatedAt" = ? WHERE id = ?',
       [status, new Date().toISOString(), discussionId]
     );
 
@@ -358,9 +363,16 @@ export const submitRating = async (req: Request, res: Response) => {
     const now = new Date().toISOString();
 
     await database.run(
-      `INSERT OR REPLACE INTO ratings 
-       (id, promptId, userId, userName, score, feedback, helpfulness, accuracy, relevance, createdAt, updatedAt) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO ratings 
+       (id, "promptId", "userId", "userName", score, feedback, helpfulness, accuracy, relevance, "createdAt", "updatedAt") 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT ("promptId", "userId") DO UPDATE SET
+       score = excluded.score,
+       feedback = excluded.feedback,
+       helpfulness = excluded.helpfulness,
+       accuracy = excluded.accuracy,
+       relevance = excluded.relevance,
+       "updatedAt" = excluded."updatedAt"`,
       [id, promptId, userId, userName, score, feedback || null, helpfulness || 0, accuracy || 0, relevance || 0, now, now]
     );
 
@@ -379,7 +391,7 @@ export const getPromptRatings = async (req: Request, res: Response) => {
     const { promptId } = req.params;
 
     const ratings = await database.all(
-      `SELECT * FROM ratings WHERE promptId = ? ORDER BY createdAt DESC`,
+      `SELECT * FROM ratings WHERE "promptId" = ? ORDER BY "createdAt" DESC`,
       [promptId]
     );
 
@@ -395,7 +407,7 @@ export const getPromptStats = async (req: Request, res: Response) => {
     const { promptId } = req.params;
 
     const ratings = await database.all(
-      `SELECT * FROM ratings WHERE promptId = ?`,
+      `SELECT * FROM ratings WHERE "promptId" = ?`,
       [promptId]
     );
 
