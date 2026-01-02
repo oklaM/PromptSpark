@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Edit, X, Play, Activity, Code, Trash2 } from 'lucide-react';
+import { Edit, X, Play, Activity, Code, Trash2, Wand2 } from 'lucide-react';
 import { PermissionManagement } from './PermissionManagement';
 import { HistoryList } from './HistoryList';
 import { CommentThread } from './CommentThread';
@@ -7,6 +7,7 @@ import { RatingComponent } from './RatingComponent';
 import { PromptPlayground } from './PromptPlayground';
 import { PromptDiagnosis } from './PromptDiagnosis';
 import { SdkIntegrationModal } from './SdkIntegrationModal';
+import { OptimizeModal } from './OptimizeModal';
 import { useAuthStore } from '../stores/authStore';
 import { aiService } from '../services/aiService';
 import { promptService } from '../services/promptService';
@@ -24,6 +25,7 @@ interface PromptDetailProps {
   tags: string[];
   createdAt: string;
   updatedAt: string;
+  metadata?: any;
   onClose?: () => void;
   onEdit?: () => void;
 }
@@ -40,12 +42,16 @@ export function PromptDetail({
   tags,
   createdAt,
   updatedAt,
+  metadata,
   onClose,
   onEdit,
 }: PromptDetailProps) {
   const [showHistory, setShowHistory] = useState(false);
   const [showPlayground, setShowPlayground] = useState(false);
   const [showSdk, setShowSdk] = useState(false);
+  const [showOptimize, setShowOptimize] = useState(false);
+  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [optimizeResult, setOptimizeResult] = useState<{ optimized: string; changes: string[] } | null>(null);
   const [evalStats, setEvalStats] = useState<{ total: number, good: number, bad: number, passRate: number } | null>(null);
   const { user } = useAuthStore();
   const { show: toast } = useToast();
@@ -77,6 +83,34 @@ export function PromptDetail({
     }
   };
 
+  const handleOptimize = async (goal: 'quality' | 'detail' | 'creative') => {
+    setIsOptimizing(true);
+    try {
+      const result = await aiService.optimizePrompt(content, goal);
+      setOptimizeResult(result);
+    } catch (err) {
+      console.error(err);
+      toast('优化失败，请稍后重试', 'error');
+    } finally {
+      setIsOptimizing(false);
+    }
+  };
+
+  const handleApplyOptimization = async (newContent: string) => {
+    if (!id) return;
+    try {
+      await promptService.updatePrompt(id, { content: newContent });
+      toast('已应用优化结果', 'success');
+      setShowOptimize(false);
+      setOptimizeResult(null);
+      // Reload page to show changes (or better, trigger a refetch via parent)
+      window.location.reload(); 
+    } catch (err) {
+      console.error(err);
+      toast('应用失败', 'error');
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('zh-CN', {
       year: 'numeric',
@@ -96,6 +130,16 @@ export function PromptDetail({
               <p className="text-blue-100 text-base sm:text-lg">{description}</p>
             </div>
             <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+              {isOwner && (
+                <button
+                  onClick={() => setShowOptimize(true)}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-3 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white rounded-lg transition-all font-bold shadow-lg shadow-purple-900/20 text-sm border border-white/10"
+                  title="AI 智能润色"
+                >
+                  <Wand2 className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
+                  <span>AI 优化</span>
+                </button>
+              )}
               <button
                 onClick={() => setShowPlayground(true)}
                 className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-3 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors font-medium backdrop-blur-sm text-sm"
@@ -186,6 +230,59 @@ export function PromptDetail({
 
         {/* Main Content Area */}
         <div className="p-6">
+          {/* Metadata Section (if available) */}
+          {metadata && (
+            <div className="mb-8 bg-blue-50/50 rounded-xl p-5 border border-blue-100">
+              <h2 className="text-sm font-bold text-blue-800 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <Activity className="w-4 h-4" />
+                AI 绘画生成参数
+              </h2>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="bg-white p-3 rounded-lg border border-blue-50 shadow-sm">
+                  <div className="text-[10px] text-slate-400 font-bold uppercase mb-1">模型 (Model)</div>
+                  <div className="text-sm font-mono font-bold text-slate-700 truncate" title={metadata.model}>{metadata.model || 'Unknown'}</div>
+                </div>
+                <div className="bg-white p-3 rounded-lg border border-blue-50 shadow-sm">
+                  <div className="text-[10px] text-slate-400 font-bold uppercase mb-1">采样器 (Sampler)</div>
+                  <div className="text-sm font-mono font-bold text-slate-700 truncate" title={metadata.sampler}>{metadata.sampler || 'Unknown'}</div>
+                </div>
+                <div className="bg-white p-3 rounded-lg border border-blue-50 shadow-sm">
+                  <div className="text-[10px] text-slate-400 font-bold uppercase mb-1">种子 (Seed)</div>
+                  <div className="text-sm font-mono font-bold text-slate-700">{metadata.seed || '0'}</div>
+                </div>
+                <div className="bg-white p-3 rounded-lg border border-blue-50 shadow-sm">
+                  <div className="text-[10px] text-slate-400 font-bold uppercase mb-1">CFG Scale / Steps</div>
+                  <div className="text-sm font-mono font-bold text-slate-700">{metadata.cfgScale || 7} / {metadata.steps || 20}</div>
+                </div>
+              </div>
+              
+              {metadata.loras && metadata.loras.length > 0 && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {metadata.loras.map((lora: any, idx: number) => (
+                    <div key={idx} className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-blue-100 text-[11px] shadow-sm">
+                      <span className="font-bold text-blue-600">LoRA</span>
+                      <span className="text-slate-600">{lora.name}</span>
+                      <span className="bg-blue-50 px-1.5 py-0.5 rounded-md text-blue-500 font-black">{lora.weight}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {metadata.sourceUrl && (
+                <div className="mt-4 pt-4 border-t border-blue-100/50">
+                  <a 
+                    href={metadata.sourceUrl} 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="text-[10px] text-blue-400 hover:text-blue-600 flex items-center gap-1 font-bold italic"
+                  >
+                    来源链接: {new URL(metadata.sourceUrl).hostname}
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Content Section */}
           <div className="mb-6">
             <h2 className="text-lg font-semibold mb-3">提示词内容</h2>
@@ -272,6 +369,19 @@ export function PromptDetail({
         isOpen={showSdk}
         onClose={() => setShowSdk(false)}
         promptId={id}
+      />
+
+      <OptimizeModal
+        isOpen={showOptimize}
+        onClose={() => {
+          setShowOptimize(false);
+          setOptimizeResult(null);
+        }}
+        originalContent={content}
+        isLoading={isOptimizing}
+        optimizedResult={optimizeResult}
+        onOptimize={handleOptimize}
+        onApply={handleApplyOptimization}
       />
     </div>
   );

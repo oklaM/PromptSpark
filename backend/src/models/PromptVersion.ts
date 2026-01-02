@@ -18,7 +18,7 @@ export interface PromptVersion {
 export class PromptVersionModel {
   static async getHistory(promptId: string): Promise<PromptVersion[]> {
     const rows = await database.all(
-      `SELECT * FROM prompt_history WHERE promptId = ? ORDER BY version DESC`,
+      `SELECT * FROM prompt_history WHERE "promptId" = ? ORDER BY version DESC`,
       [promptId]
     );
 
@@ -30,7 +30,7 @@ export class PromptVersionModel {
 
   static async getVersion(promptId: string, version: number): Promise<PromptVersion | null> {
     const row = await database.get(
-      `SELECT * FROM prompt_history WHERE promptId = ? AND version = ?`,
+      `SELECT * FROM prompt_history WHERE "promptId" = ? AND version = ?`,
       [promptId, version]
     );
 
@@ -57,7 +57,7 @@ export class PromptVersionModel {
     const now = new Date().toISOString();
 
     await database.run(
-      `INSERT INTO prompt_history (id, promptId, version, title, description, content, category, tags, changedBy, changeLog, createdAt)
+      `INSERT INTO prompt_history (id, "promptId", version, title, description, content, category, tags, "changedBy", "changeLog", "createdAt")
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,

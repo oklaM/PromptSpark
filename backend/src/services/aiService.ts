@@ -122,6 +122,106 @@ Do NOT include markdown formatting. Just the raw JSON string.
   }
 
   /**
+   * Optimizes a prompt for better quality, detail, or specific goals.
+   */
+  static async optimizePrompt(
+    content: string,
+    goal: 'quality' | 'detail' | 'creative' | 'clarity' = 'quality',
+    config?: { apiKey?: string; baseURL?: string; provider?: string; model?: string }
+  ): Promise<{ original: string; optimized: string; changes: string[] }> {
+    const optimizationSystemPrompt = `
+Act as an Expert Prompt Engineer specializing in Stable Diffusion and Midjourney.
+Your task is to OPTIMIZE the user's prompt to achieve the goal: "${goal.toUpperCase()}".
+
+Guidelines:
+- Maintain the original core intent and subject.
+- Enhance descriptive words (adjectives, lighting, style).
+- Fix grammar and logical inconsistencies.
+- Add standard high-quality modifiers (e.g., "masterpiece", "8k", "trending on artstation") if suitable for the goal.
+- Remove conflicting terms.
+
+Input Prompt:
+"""
+${content}
+"""
+
+Return a strict JSON object with this structure:
+{
+  "optimized": "The fully optimized prompt text",
+  "changes": ["List of key changes made (e.g. 'Added lighting descriptors', 'Fixed typo in subject')"]
+}
+
+Do NOT include markdown formatting. Just the raw JSON string.
+`;
+
+    // Reuse the robust routing logic from diagnosePrompt
+    const aiProvider = (config?.provider === 'auto' ? undefined : config?.provider) || process.env.AI_PROVIDER;
+    let attempts = [];
+
+    if (aiProvider === 'deepseek') attempts.push('deepseek');
+    else if (aiProvider === 'gemini') attempts.push('gemini');
+
+    if (!attempts.includes('deepseek') && (config?.provider === 'deepseek' || process.env.DEEPSEEK_API_KEY)) attempts.push('deepseek');
+    if (!attempts.includes('gemini') && (config?.provider === 'gemini' || process.env.AI_API_KEY)) attempts.push('gemini');
+    
+    if (attempts.length === 0) {
+        if (process.env.DEEPSEEK_API_KEY) attempts.push('deepseek');
+        if (process.env.AI_API_KEY) attempts.push('gemini');
+    }
+
+    let rawResponse = '';
+
+    for (const provider of attempts) {
+        try {
+            if (provider === 'deepseek') {
+                const key = (config?.provider === 'deepseek' ? config?.apiKey : undefined) || process.env.DEEPSEEK_API_KEY;
+                if (key) {
+                   const openai = new OpenAI({ apiKey: key, baseURL: config?.baseURL || process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com' });
+                   const res = await openai.chat.completions.create({
+                       messages: [{ role: 'user', content: optimizationSystemPrompt }],
+                       model: config?.model || 'deepseek-chat',
+                   });
+                   rawResponse = res.choices[0].message.content || '';
+                   break;
+                }
+            } else if (provider === 'gemini') {
+                const key = (config?.provider === 'gemini' ? config?.apiKey : undefined) || process.env.AI_API_KEY;
+                if (key) {
+                    const genAI = new GoogleGenerativeAI(key);
+                    const model = genAI.getGenerativeModel({ model: config?.model || 'gemini-1.5-flash' });
+                    const res = await model.generateContent(optimizationSystemPrompt);
+                    rawResponse = res.response.text();
+                    break;
+                }
+            }
+        } catch (error) {
+            console.error(`Optimization Error (${provider}):`, error);
+        }
+    }
+
+    if (!rawResponse) {
+        return {
+            original: content,
+            optimized: content,
+            changes: ["AI service unavailable"]
+        };
+    }
+
+    try {
+        const jsonStr = rawResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+        const result = JSON.parse(jsonStr);
+        return {
+            original: content,
+            optimized: result.optimized,
+            changes: result.changes || []
+        };
+    } catch (e) {
+        console.error('Failed to parse optimization response', rawResponse);
+        throw new Error('Invalid optimization format');
+    }
+  }
+
+  /**
    * Analyzes prompt content to generate metadata.
    * Uses external AI if configured, otherwise falls back to local heuristics.
    */

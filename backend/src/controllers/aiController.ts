@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { AiService } from '../services/aiService';
+import { SubscriptionModel } from '../models/Subscription';
 
 export class AiController {
   static async analyze(req: Request, res: Response): Promise<void> {
@@ -118,6 +119,41 @@ export class AiController {
       res.status(500).json({
         success: false,
         message: 'Failed to retrieve models'
+      });
+    }
+  }
+
+  static async optimize(req: Request, res: Response): Promise<void> {
+    try {
+      const { content, goal, config, apiKey, provider, baseURL, model } = req.body;
+
+      if (!content) {
+        res.status(400).json({ success: false, message: 'Content is required for optimization' });
+        return;
+      }
+
+      const aiConfig = {
+          apiKey: apiKey || config?.apiKey,
+          baseURL: baseURL || config?.baseURL,
+          provider: provider || config?.provider,
+          model: model || config?.model
+      };
+
+      const result = await AiService.optimizePrompt(content, goal || 'quality', aiConfig);
+
+      // Increment usage count for the user
+      if ((req as any).user) {
+        await SubscriptionModel.incrementAiUsage((req as any).user.id);
+      }
+
+      res.json({
+        success: true,
+        data: result
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Optimization failed'
       });
     }
   }

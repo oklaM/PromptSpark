@@ -60,6 +60,21 @@ class AiService {
     return response.data.data;
   }
 
+  async optimizePrompt(content: string, goal: 'quality' | 'detail' | 'creative'): Promise<{ original: string; optimized: string; changes: string[] }> {
+    const settings = useSettingsStore.getState().config;
+    const response = await axiosClient.post('/ai/optimize', {
+        content,
+        goal,
+        config: {
+            apiKey: settings.apiKey,
+            baseURL: settings.baseUrl,
+            provider: settings.provider,
+            model: settings.model
+        }
+    });
+    return response.data.data;
+  }
+
   async getModels(): Promise<Array<{ id: string, name: string, provider: string, color: string }>> {
     const response = await axiosClient.get('/ai/models');
     return response.data.data;

@@ -1,11 +1,11 @@
-# PromptSpark 部署指南 (v2.3)
+# PromptSpark 部署指南 (v2.4)
 
 ## 本地部署
 
 ### 前置要求
 - Node.js >= 18.0.0
 - npm >= 9.0.0
-- SQLite3
+- PostgreSQL >= 14 (推荐) 或 SQLite3
 
 ### 步骤
 
@@ -18,8 +18,16 @@ npm install
 ```bash
 cp backend/.env.example backend/.env
 # 编辑 backend/.env
-# PORT=5000
-# JWT_SECRET=your_secret_key
+# 配置数据库连接 (PostgreSQL 示例)
+# DB_HOST=localhost
+# DB_PORT=5432
+# DB_NAME=promptspark
+# DB_USER=postgres
+# DB_PASSWORD=yourpassword
+#
+# 配置 AI 服务 (Gemini/DeepSeek)
+# AI_PROVIDER=gemini
+# AI_API_KEY=your_api_key
 ```
 
 3. **启动应用**
@@ -37,7 +45,18 @@ npm run dev
 version: '3.8'
 
 services:
-  promptspark:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-promptspark}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  app:
     build: .
     ports:
       - "5000:5000" # API
@@ -45,11 +64,19 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=5000
-      - DATABASE_PATH=/app/data/promptspark.db
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-promptspark}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
       - JWT_SECRET=${JWT_SECRET}
-    volumes:
-      - ./data:/app/data
+      - AI_API_KEY=${AI_API_KEY}
+    depends_on:
+      - db
     restart: unless-stopped
+
+volumes:
+  postgres_data:
 ```
 
 ### 启动
@@ -65,19 +92,27 @@ docker-compose up -d
 | 变量名 | 必填 | 默认值 | 描述 |
 |--------|------|--------|------|
 | PORT | 否 | 5000 | 后端监听端口 |
-| DATABASE_PATH | 否 | ./data/promptspark.db | SQLite 数据库文件路径 |
+| DB_HOST | 否 | localhost | 数据库主机 |
+| DB_PORT | 否 | 5432 | 数据库端口 |
+| DB_NAME | 否 | promptspark | 数据库名 |
+| DB_USER | 否 | postgres | 数据库用户 |
+| DB_PASSWORD | 否 | postgres | 数据库密码 |
 | JWT_SECRET | 是 | - | 用户认证加密密钥 |
-| NODE_ENV | 否 | development | 运行模式 (development/production) |
+| AI_API_KEY | 否 | - | Gemini/DeepSeek API Key |
+| AI_PROVIDER | 否 | gemini | AI 服务商 (gemini/deepseek) |
 
 ---
 
 ## 数据库维护
 
 ### 备份
-直接备份 `DATABASE_PATH` 指定的 `.db` 文件即可。
+使用 `pg_dump` 备份 PostgreSQL 数据库：
+```bash
+docker-compose exec db pg_dump -U postgres promptspark > backup.sql
+```
 
 ### 迁移
-由于采用 MVC 架构与 Model 封装，如果需要更换数据库 (如 PostgreSQL)，仅需实现新的 Model 适配器并更新 `database.ts` 连接逻辑。
+后端应用启动时会自动检测 schema 变更并执行必要的迁移（如添加 `metadata` 列）。
 
 ---
 
@@ -86,8 +121,8 @@ docker-compose up -d
 1. **强密钥**: 务必在生产环境更改 `JWT_SECRET`。
 2. **HTTPS**: 强烈建议通过 Nginx 配置 SSL。
 3. **API Token**: 提醒用户定期更换开发者 Token。
-4. **权限最小化**: 确保 Docker 运行用户对数据库文件只有必要的读写权限。
+4. **AI 配额**: 监控 AI API Key 的使用量，防止超额扣费。
 
 ---
 
-*最后更新：2025 年 12 月 30 日*
+*最后更新：2026 年 1 月 1 日*

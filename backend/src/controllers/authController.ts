@@ -27,7 +27,7 @@ export class AuthController {
       const passwordHash = await bcrypt.hash(password, 10);
 
       await database.run(
-        `INSERT INTO users (id, username, email, passwordHash, displayName, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO users (id, username, email, "passwordHash", "displayName", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [id, username, email || null, passwordHash, displayName || username, now, now]
       );
 

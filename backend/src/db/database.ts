@@ -22,7 +22,7 @@ class Database {
   constructor() {
     this.pool = new Pool(dbConfig);
     
-    this.pool.on('error', (err) => {
+    this.pool.on('error', (err: Error) => {
       console.error('Unexpected error on idle client', err);
       process.exit(-1);
     });
@@ -65,8 +65,29 @@ class Database {
           likes INTEGER DEFAULT 0,
           "createdAt" TEXT NOT NULL,
           "updatedAt" TEXT NOT NULL,
-          "deletedAt" TEXT
+          "deletedAt" TEXT,
+          metadata JSONB
         )
+      `);
+
+      // 自动迁移：检查 metadata 列是否存在，不存在则添加
+      await client.query(`
+        DO $$ 
+        BEGIN 
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='prompts' AND column_name='metadata') THEN 
+            ALTER TABLE prompts ADD COLUMN metadata JSONB; 
+          END IF; 
+        END $$;
+      `);
+
+      // 自动迁移：检查 deletedAt 列是否存在 (prompts)
+      await client.query(`
+        DO $$ 
+        BEGIN 
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='prompts' AND column_name='deletedAt') THEN 
+            ALTER TABLE prompts ADD COLUMN "deletedAt" TEXT; 
+          END IF; 
+        END $$;
       `);
 
       // Tags 表
@@ -176,6 +197,16 @@ class Database {
         )
       `);
 
+      // 自动迁移：检查 deletedAt 列是否存在 (comments)
+      await client.query(`
+        DO $$ 
+        BEGIN 
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='comments' AND column_name='deletedAt') THEN 
+            ALTER TABLE comments ADD COLUMN "deletedAt" TEXT; 
+          END IF; 
+        END $$;
+      `);
+
       // 评论点赞表
       await client.query(`
         CREATE TABLE IF NOT EXISTS comment_likes (
@@ -258,10 +289,23 @@ class Database {
         )
       `);
 
-      // 创建索引 (Postgres 语法略有不同，但 CREATE INDEX 基本上通用)
+      // Subscriptions 表 (商业化核心)
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS subscriptions (
+          "userId" TEXT PRIMARY KEY,
+          plan TEXT DEFAULT 'free', -- 'free', 'pro', 'team'
+          "storageLimit" INTEGER DEFAULT 50,
+          "aiLimit" INTEGER DEFAULT 5, -- 每日优化次数
+          "aiUsedToday" INTEGER DEFAULT 0,
+          "lastResetDate" TEXT,
+          "updatedAt" TEXT NOT NULL,
+          FOREIGN KEY ("userId") REFERENCES users(id) ON DELETE CASCADE
+        )
+      `);
+
+      // 创建索引
       await client.query(`CREATE INDEX IF NOT EXISTS idx_prompts_category ON prompts(category)`);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_prompts_author ON prompts(author)`);
-      // Postgres 区分大小写，列名如果是驼峰需要加引号，这里统一处理了
       await client.query(`CREATE INDEX IF NOT EXISTS idx_prompts_created_at ON prompts("createdAt")`);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_prompt_history_prompt_id ON prompt_history("promptId")`);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_permissions_user_id ON permissions("userId")`);
@@ -280,33 +324,20 @@ class Database {
     }
   }
 
-  // 适配 SQLite 的 run 方法 (用于 INSERT, UPDATE, DELETE)
   async run(sql: string, params: any[] = []): Promise<any> {
     if (!this.pool) await this.initialize();
-    
     const convertedSql = this.convertSql(sql);
-    
-    // Postgres 的 INSERT/UPDATE 不会自动返回 lastID，除非使用 RETURNING
-    // 这里为了适配，我们尽力模拟。如果是 INSERT，我们可能需要修改 SQL 添加 RETURNING id
-    // 但为了不破坏原有 SQL 结构，且大部分业务逻辑可能依赖 id (UUID) 而不是自增 ID
-    // 我们只返回 changes (rowCount)
-    
     const client = await this.pool.connect();
     try {
       const res = await client.query(convertedSql, params);
-      return { 
-        id: null, // Postgres 不支持 lastID (除非是 SERIAL 且用了 RETURNING)，但这在 UUID 场景下通常无用
-        changes: res.rowCount 
-      };
+      return { changes: res.rowCount };
     } finally {
       client.release();
     }
   }
 
-  // 适配 SQLite 的 get 方法 (返回单行)
   async get(sql: string, params: any[] = []): Promise<any> {
     if (!this.pool) await this.initialize();
-    
     const convertedSql = this.convertSql(sql);
     const client = await this.pool.connect();
     try {
@@ -317,10 +348,8 @@ class Database {
     }
   }
 
-  // 适配 SQLite 的 all 方法 (返回多行)
   async all(sql: string, params: any[] = []): Promise<any[]> {
     if (!this.pool) await this.initialize();
-    
     const convertedSql = this.convertSql(sql);
     const client = await this.pool.connect();
     try {

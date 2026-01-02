@@ -314,4 +314,44 @@ export class PromptController {
       res.status(500).json({ success: false, message: error instanceof Error ? error.message : 'Failed to revert' });
     }
   }
+
+  static async sync(req: Request, res: Response): Promise<void> {
+    try {
+      const items = req.body.items;
+      if (!items || !Array.isArray(items)) {
+        res.status(400).json({ success: false, message: 'items array required' });
+        return;
+      }
+
+      const currentUser = (req as any).user;
+      const createdPrompts = [];
+
+      for (const item of items) {
+        // Transform SparkPrompt (Extension) -> CreatePromptDTO (Backend)
+        const dto: CreatePromptDTO = {
+          title: item.model ? `${item.model} Capture` : 'Synced Prompt',
+          content: item.positivePrompt + (item.negativePrompt ? `\n\nNegative Prompt:\n${item.negativePrompt}` : ''),
+          description: `Captured from ${item.sourceUrl || 'Web'}`,
+          category: 'AI Art',
+          tags: [item.model, ...(item.loras || []).map((l: any) => l.name)].filter(Boolean),
+          author: currentUser ? currentUser.username : 'Anonymous',
+          metadata: item // Store full structured data
+        };
+
+        const prompt = await PromptModel.create(dto);
+        if (currentUser) {
+          await PermissionModel.grant(prompt.id, currentUser.id, 'owner', currentUser.id);
+        }
+        createdPrompts.push(prompt);
+      }
+
+      res.status(201).json({
+        success: true,
+        data: createdPrompts,
+        message: `Successfully synced ${createdPrompts.length} prompts`
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error instanceof Error ? error.message : 'Sync failed' });
+    }
+  }
 }

@@ -223,7 +223,13 @@ function AppContent() {
       {showLogin && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4">
           <div className="bg-white rounded-lg w-full max-w-sm">
-            <LoginForm onClose={() => setShowLogin(false)} />
+            <LoginForm 
+              onClose={() => setShowLogin(false)} 
+              onSwitchToRegister={() => {
+                setShowLogin(false);
+                setShowRegister(true);
+              }}
+            />
           </div>
         </div>
       )}

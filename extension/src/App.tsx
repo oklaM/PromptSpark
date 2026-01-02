@@ -12,6 +12,7 @@ interface Prompt {
 
 export default function App() {
   const [prompts, setPrompts] = useState<Prompt[]>([]);
+  const [localPrompts, setLocalPrompts] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [config, setConfig] = useState({ 
     token: '', 
@@ -20,18 +21,21 @@ export default function App() {
   const [loginData, setLoginData] = useState({ username: '', password: '' });
   const [view, setView] = useState<'login' | 'list' | 'settings'>('list');
   const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Load config from Chrome Storage
+  // Load config and local prompts from Chrome Storage
   useEffect(() => {
     if (typeof chrome !== 'undefined' && chrome.storage) {
-      chrome.storage.local.get(['token', 'baseUrl'], (result) => {
+      chrome.storage.local.get(['token', 'baseUrl', 'sparkPrompts'], (result) => {
         const hasToken = !!result.token;
         setConfig({ 
           token: result.token || '', 
           baseUrl: result.baseUrl || 'http://localhost:5000' 
         });
+        setLocalPrompts(result.sparkPrompts || []);
+        
         if (!hasToken) {
           setView('login');
         } else {
@@ -63,6 +67,31 @@ export default function App() {
       setError(err.response?.data?.message || '无法获取提示词，请检查连接');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSync = async () => {
+    if (localPrompts.length === 0 || !config.token) return;
+    
+    setSyncing(true);
+    setError(null);
+    try {
+      await axios.post(`${config.baseUrl}/api/prompts/sync`, 
+        { items: localPrompts },
+        { headers: { Authorization: `Bearer ${config.token}` } }
+      );
+      
+      // Clear local storage on success
+      if (typeof chrome !== 'undefined' && chrome.storage) {
+        chrome.storage.local.set({ sparkPrompts: [] }, () => {
+          setLocalPrompts([]);
+          fetchPrompts(); // Refresh cloud list
+        });
+      }
+    } catch (err: any) {
+      setError('同步失败: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -132,6 +161,25 @@ export default function App() {
           </button>
         )}
       </header>
+
+      {/* Sync Banner */}
+      {view === 'list' && localPrompts.length > 0 && (
+        <div className="bg-blue-600 text-white px-4 py-2.5 flex items-center justify-between animate-in slide-in-from-top duration-300">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 fill-current" />
+            <span className="text-[11px] font-bold uppercase tracking-wider">
+              发现 {localPrompts.length} 个新采集项
+            </span>
+          </div>
+          <button 
+            onClick={handleSync}
+            disabled={syncing}
+            className="bg-white text-blue-600 px-3 py-1 rounded-full text-[10px] font-black uppercase shadow-sm hover:bg-blue-50 transition-all disabled:opacity-50"
+          >
+            {syncing ? '同步中...' : '立即上云'}
+          </button>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto p-4 custom-scrollbar">

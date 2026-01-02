@@ -71,8 +71,13 @@ export class PermissionModel {
     const now = new Date().toISOString();
 
     await database.run(
-      `INSERT OR REPLACE INTO permissions (id, promptId, userId, role, grantedBy, grantedAt)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO permissions (id, "promptId", "userId", role, "grantedBy", "grantedAt")
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT ("promptId", "userId") DO UPDATE SET
+       role = excluded.role,
+       "grantedBy" = excluded."grantedBy",
+       "grantedAt" = excluded."grantedAt",
+       "revokedAt" = NULL`,
       [id, promptId, userId, role, grantedBy, now]
     );
   }
@@ -81,7 +86,7 @@ export class PermissionModel {
     const placeholders = roles.map(() => '?').join(',');
     const perm = await database.get(
       `SELECT * FROM permissions 
-       WHERE promptId = ? AND userId = ? AND revokedAt IS NULL AND role IN (${placeholders})`,
+       WHERE "promptId" = ? AND "userId" = ? AND "revokedAt" IS NULL AND role IN (${placeholders})`,
       [promptId, userId, ...roles]
     );
     return !!perm;
@@ -89,17 +94,17 @@ export class PermissionModel {
 
   static async getByPrompt(promptId: string): Promise<any[]> {
     return await database.all(
-      `SELECT p.*, u.displayName, u.username 
+      `SELECT p.*, u."displayName", u.username 
        FROM permissions p
-       LEFT JOIN users u ON p.userId = u.id
-       WHERE p.promptId = ? AND p.revokedAt IS NULL`,
+       LEFT JOIN users u ON p."userId" = u.id
+       WHERE p."promptId" = ? AND p."revokedAt" IS NULL`,
       [promptId]
     );
   }
 
   static async revoke(permissionId: string): Promise<void> {
     await database.run(
-      'UPDATE permissions SET revokedAt = ? WHERE id = ?',
+      'UPDATE permissions SET "revokedAt" = ? WHERE id = ?',
       [new Date().toISOString(), permissionId]
     );
   }

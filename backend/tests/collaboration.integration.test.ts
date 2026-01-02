@@ -1,14 +1,49 @@
 import express from 'express';
 import request from 'supertest';
+import { vi, describe, beforeAll, afterAll, test, expect } from 'vitest';
 import collaborationRoutes from '../src/routes/collaborationRoutes';
+
+// Mock the database module BEFORE importing it via routes
+vi.mock('../src/db/database', () => ({
+  database: {
+    initialize: vi.fn().mockResolvedValue(undefined),
+    close: vi.fn().mockResolvedValue(undefined),
+    get: vi.fn(),
+    all: vi.fn(),
+    run: vi.fn().mockResolvedValue({ changes: 1, id: 'mock-id' }),
+  },
+}));
+
 import { database } from '../src/db/database';
 
 describe('Collaboration API Integration Tests', () => {
   let app: express.Application;
 
   beforeAll(async () => {
-    // Initialize database (connect and create tables)
-    await database.initialize();
+    // Setup default mock implementations
+    (database.get as any).mockImplementation((sql: string) => {
+        if (sql.includes('SELECT * FROM permissions WHERE id = ?')) {
+             return Promise.resolve({ id: 'perm-1', promptId: '1', userId: 'user-1', role: 'viewer' });
+        }
+        if (sql.includes('SELECT * FROM permissions')) {
+             return Promise.resolve({ role: 'owner' }); // Default owner check pass
+        }
+        if (sql.includes('SELECT * FROM comments WHERE id = ?')) {
+             return Promise.resolve({ id: 'comment-1', userId: 'test-user-1' });
+        }
+        if (sql.includes('SELECT * FROM ratings WHERE id = ?')) {
+             return Promise.resolve({ id: 'rating-1', userId: 'test-user-1' });
+        }
+        // Check permission route mock
+        if (sql.includes('SELECT * FROM permissions') && sql.includes('WHERE "promptId" = ? AND "userId" = ?')) {
+            return Promise.resolve({ role: 'editor' });
+        }
+        return Promise.resolve(null);
+    });
+
+    (database.all as any).mockImplementation(() => {
+        return Promise.resolve([]);
+    });
 
     // Create Express app for testing
     app = express();
@@ -25,7 +60,7 @@ describe('Collaboration API Integration Tests', () => {
   });
 
   afterAll(async () => {
-    await database.close();
+    vi.clearAllMocks();
   });
 
   describe('API Route Structure', () => {

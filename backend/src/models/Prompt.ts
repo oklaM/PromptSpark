@@ -14,6 +14,7 @@ export interface Prompt {
   tags: string[];
   createdAt: string;
   updatedAt: string;
+  metadata?: any; // 存储结构化生成参数 (Seed, Model, etc.)
 }
 
 export interface CreatePromptDTO {
@@ -23,6 +24,7 @@ export interface CreatePromptDTO {
   category?: string;
   author?: string;
   tags?: string[];
+  metadata?: any;
 }
 
 export class PromptModel {
@@ -31,9 +33,9 @@ export class PromptModel {
     const now = new Date().toISOString();
 
     await database.run(
-      `INSERT INTO prompts (id, title, description, content, category, author, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, data.title, data.description || '', data.content, data.category || '', data.author || 'Anonymous', now, now]
+      `INSERT INTO prompts (id, title, description, content, category, author, "createdAt", "updatedAt", metadata)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, data.title, data.description || '', data.content, data.category || '', data.author || 'Anonymous', now, now, data.metadata ? JSON.stringify(data.metadata) : null]
     );
 
     // 添加标签
@@ -45,7 +47,7 @@ export class PromptModel {
 
     // 创建初始版本历史
     await database.run(
-      `INSERT INTO prompt_history (id, promptId, version, title, description, content, category, tags, changedBy, createdAt)
+      `INSERT INTO prompt_history (id, "promptId", version, title, description, content, category, tags, "changedBy", "createdAt")
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [uuidv4(), id, 1, data.title, data.description || '', data.content, data.category || '', JSON.stringify(data.tags || []), data.author || 'Anonymous', now]
     );
@@ -55,7 +57,7 @@ export class PromptModel {
 
   static async getById(id: string): Promise<Prompt | null> {
     const prompt = await database.get(
-      `SELECT * FROM prompts WHERE id = ? AND deletedAt IS NULL`,
+      `SELECT * FROM prompts WHERE id = ? AND "deletedAt" IS NULL`,
       [id]
     );
 
@@ -63,15 +65,16 @@ export class PromptModel {
 
     const tags = await database.all(
       `SELECT t.name FROM tags t
-       JOIN prompt_tags pt ON t.id = pt.tagId
-       WHERE pt.promptId = ?`,
+       JOIN prompt_tags pt ON t.id = pt."tagId"
+       WHERE pt."promptId" = ?`,
       [id]
     );
 
     return {
       ...prompt,
       tags: tags.map(t => t.name),
-      isPublic: Boolean(prompt.isPublic)
+      isPublic: Boolean(prompt.isPublic),
+      metadata: typeof prompt.metadata === 'string' ? JSON.parse(prompt.metadata) : prompt.metadata
     };
   }
 
@@ -79,11 +82,11 @@ export class PromptModel {
     const offset = (page - 1) * limit;
 
     const total = await database.get(
-      `SELECT COUNT(*) as count FROM prompts WHERE deletedAt IS NULL`
+      `SELECT COUNT(*) as count FROM prompts WHERE "deletedAt" IS NULL`
     );
 
     const prompts = await database.all(
-      `SELECT * FROM prompts WHERE deletedAt IS NULL ORDER BY createdAt DESC LIMIT ? OFFSET ?`,
+      `SELECT * FROM prompts WHERE "deletedAt" IS NULL ORDER BY "createdAt" DESC LIMIT ? OFFSET ?`,
       [limit, offset]
     );
 
@@ -92,14 +95,15 @@ export class PromptModel {
       prompts.map(async (prompt) => {
         const tags = await database.all(
           `SELECT t.name FROM tags t
-           JOIN prompt_tags pt ON t.id = pt.tagId
-           WHERE pt.promptId = ?`,
+           JOIN prompt_tags pt ON t.id = pt."tagId"
+           WHERE pt."promptId" = ?`,
           [prompt.id]
         );
         return {
           ...prompt,
           tags: tags.map(t => t.name),
-          isPublic: Boolean(prompt.isPublic)
+          isPublic: Boolean(prompt.isPublic),
+          metadata: typeof prompt.metadata === 'string' ? JSON.parse(prompt.metadata) : prompt.metadata
         };
       })
     );
@@ -135,11 +139,11 @@ export class PromptModel {
       updateValues.push(data.category);
     }
     if ((data as any).isPublic !== undefined) {
-      updateFields.push('isPublic = ?');
+      updateFields.push('"isPublic" = ?');
       updateValues.push((data as any).isPublic ? 1 : 0);
     }
 
-    updateFields.push('updatedAt = ?');
+    updateFields.push('"updatedAt" = ?');
     updateValues.push(now);
     updateValues.push(id);
 
@@ -153,7 +157,7 @@ export class PromptModel {
     let currentTags = prompt.tags; // Default to existing
     if (data.tags) {
       // Remove existing prompt_tags entries
-      await database.run(`DELETE FROM prompt_tags WHERE promptId = ?`, [id]);
+      await database.run(`DELETE FROM prompt_tags WHERE "promptId" = ?`, [id]);
       for (const tagName of data.tags) {
         await this.addTag(id, tagName);
       }
@@ -164,7 +168,7 @@ export class PromptModel {
     // We assume any update via this method triggers a version if valuable fields changed.
     // Let's just do it for now.
     const history = await database.get(
-      `SELECT MAX(version) as maxVersion FROM prompt_history WHERE promptId = ?`,
+      `SELECT MAX(version) as "maxVersion" FROM prompt_history WHERE "promptId" = ?`,
       [id]
     );
     const newVersion = (history.maxVersion || 0) + 1;
@@ -179,7 +183,7 @@ export class PromptModel {
     };
 
     await database.run(
-      `INSERT INTO prompt_history (id, promptId, version, title, description, content, category, tags, changedBy, createdAt)
+      `INSERT INTO prompt_history (id, "promptId", version, title, description, content, category, tags, "changedBy", "createdAt")
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [uuidv4(), id, newVersion, newState.title, newState.description || '', newState.content, newState.category || '', JSON.stringify(newState.tags || []), changedBy || 'Unknown', now]
     );
@@ -190,16 +194,16 @@ export class PromptModel {
   static async delete(id: string): Promise<void> {
     const now = new Date().toISOString();
     await database.run(
-      `UPDATE prompts SET deletedAt = ? WHERE id = ?`,
+      `UPDATE prompts SET "deletedAt" = ? WHERE id = ?`,
       [now, id]
     );
   }
 
   static async search(query: string, category?: string, tags?: string[]): Promise<Prompt[]> {
     let sql = `SELECT DISTINCT p.* FROM prompts p
-               LEFT JOIN prompt_tags pt ON p.id = pt.promptId
-               LEFT JOIN tags t ON pt.tagId = t.id
-               WHERE p.deletedAt IS NULL AND (p.title LIKE ? OR p.description LIKE ? OR p.content LIKE ?)`;
+               LEFT JOIN prompt_tags pt ON p.id = pt."promptId"
+               LEFT JOIN tags t ON pt."tagId" = t.id
+               WHERE p."deletedAt" IS NULL AND (p.title LIKE ? OR p.description LIKE ? OR p.content LIKE ?)`;
     const params: any[] = [`%${query}%`, `%${query}%`, `%${query}%`];
 
     if (category) {
@@ -212,7 +216,7 @@ export class PromptModel {
       params.push(...tags);
     }
 
-    sql += ` ORDER BY p.createdAt DESC`;
+    sql += ` ORDER BY p."createdAt" DESC`;
 
     const results = await database.all(sql, params);
 
@@ -236,7 +240,7 @@ export class PromptModel {
     }
 
     await database.run(
-      `INSERT OR IGNORE INTO prompt_tags (promptId, tagId) VALUES (?, ?)`,
+      `INSERT INTO prompt_tags ("promptId", "tagId") VALUES (?, ?) ON CONFLICT DO NOTHING`,
       [promptId, tagId]
     );
   }
@@ -251,7 +255,7 @@ export class PromptModel {
   static async toggleLike(id: string, liked: boolean): Promise<void> {
     const change = liked ? 1 : -1;
     await database.run(
-      `UPDATE prompts SET likes = MAX(0, likes + ?) WHERE id = ?`,
+      `UPDATE prompts SET likes = GREATEST(0, likes + ?) WHERE id = ?`,
       [change, id]
     );
   }
@@ -261,7 +265,7 @@ export class PromptModel {
     const now = new Date().toISOString();
     const placeholders = ids.map(() => '?').join(',');
     await database.run(
-      `UPDATE prompts SET deletedAt = ? WHERE id IN (${placeholders})`,
+      `UPDATE prompts SET "deletedAt" = ? WHERE id IN (${placeholders})`,
       [now, ...ids]
     );
   }
@@ -271,7 +275,7 @@ export class PromptModel {
     const val = isPublic ? 1 : 0;
     const placeholders = ids.map(() => '?').join(',');
     await database.run(
-      `UPDATE prompts SET isPublic = ?, updatedAt = ? WHERE id IN (${placeholders})`,
+      `UPDATE prompts SET "isPublic" = ?, "updatedAt" = ? WHERE id IN (${placeholders})`,
       [val, new Date().toISOString(), ...ids]
     );
   }

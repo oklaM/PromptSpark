@@ -40,7 +40,7 @@
       "npm run lint -w frontend"
     ],
     "extension/**/*.{ts,tsx}": [
-      "npm run build -w extension"
+      "bash -c \"npm run build -w extension\""
     ]
   },
   "dependencies": {

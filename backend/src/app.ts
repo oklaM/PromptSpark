@@ -1,6 +1,7 @@
 import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
+import morgan from 'morgan';
 import promptRoutes from './routes/promptRoutes';
 import authRoutes from './routes/authRoutes';
 import collaborationRoutes from './routes/collaborationRoutes';
@@ -13,6 +14,7 @@ import { database } from './db/database';
 const app: Express = express();
 
 // Middleware
+app.use(morgan('dev')); // Log requests to console
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -33,7 +35,7 @@ app.get('/health', (req: Request, res: Response) => {
 
 // Error handling middleware
 app.use((err: any, req: Request, res: Response, next: any) => {
-  console.error(err);
+  console.error('❌ Server Error:', err); // Enhanced error logging
   res.status(500).json({
     success: false,
     message: 'Internal server error',
