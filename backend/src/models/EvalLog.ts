@@ -32,7 +32,7 @@ export class EvalLogModel {
     const variablesStr = data.variables ? JSON.stringify(data.variables) : null;
 
     await database.run(
-      `INSERT INTO eval_logs (id, promptId, modelId, variables, content, output, score, latency, tokens, createdAt)
+      `INSERT INTO eval_logs (id, "promptId", "modelId", variables, content, output, score, latency, tokens, "createdAt")
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id, 
@@ -59,7 +59,7 @@ export class EvalLogModel {
 
   static async getByPromptId(promptId: string, limit: number = 50): Promise<EvalLog[]> {
     const rows = await database.all(
-      `SELECT * FROM eval_logs WHERE promptId = ? ORDER BY createdAt DESC LIMIT ?`,
+      `SELECT * FROM eval_logs WHERE "promptId" = ? ORDER BY "createdAt" DESC LIMIT ?`,
       [promptId, limit]
     );
     return rows.map(this.mapRow);
@@ -72,7 +72,7 @@ export class EvalLogModel {
          SUM(CASE WHEN score = 1 THEN 1 ELSE 0 END) as good,
          SUM(CASE WHEN score = 0 THEN 1 ELSE 0 END) as bad
        FROM eval_logs 
-       WHERE promptId = ? AND score IS NOT NULL`,
+       WHERE "promptId" = ? AND score IS NOT NULL`,
       [promptId]
     );
     

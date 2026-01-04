@@ -18,7 +18,7 @@ export class ApiTokenModel {
     const now = new Date().toISOString();
 
     await database.run(
-      `INSERT INTO api_tokens (id, userId, name, token, createdAt)
+      `INSERT INTO api_tokens (id, "userId", name, token, "createdAt")
        VALUES (?, ?, ?, ?, ?)`,
       [id, userId, name, token, now]
     );
@@ -33,7 +33,7 @@ export class ApiTokenModel {
 
   static async getByUser(userId: string): Promise<ApiToken[]> {
     const rows = await database.all(
-      `SELECT * FROM api_tokens WHERE userId = ? ORDER BY createdAt DESC`,
+      `SELECT * FROM api_tokens WHERE "userId" = ? ORDER BY "createdAt" DESC`,
       [userId]
     );
     return rows;
@@ -42,7 +42,7 @@ export class ApiTokenModel {
   static async revoke(id: string, userId: string): Promise<boolean> {
     // Ensure user owns the token
     const result = await database.run(
-      `DELETE FROM api_tokens WHERE id = ? AND userId = ?`,
+      `DELETE FROM api_tokens WHERE id = ? AND "userId" = ?`,
       [id, userId]
     );
     return result.changes > 0;
@@ -55,7 +55,7 @@ export class ApiTokenModel {
 
     // Update last used
     const now = new Date().toISOString();
-    await database.run(`UPDATE api_tokens SET lastUsedAt = ? WHERE id = ?`, [now, row.id]);
+    await database.run(`UPDATE api_tokens SET "lastUsedAt" = ? WHERE id = ?`, [now, row.id]);
 
     return { userId: row.userId };
   }
