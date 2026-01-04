@@ -31,8 +31,10 @@ PromptSpark 是专为 AI 工作者与 Prompt 工程师设计的全能平台。�
 - **模型竞技场**: 同屏对比不同 LLM (OpenAI, Gemini, DeepSeek) 的输出结果。
 - **动态变量**: 自动识别 `{{variable}}` 语法并生成输入表单。
 
-🔐 **Collaboration & Security (协作与安全)**
+🔐 **Collaboration & Community (协作与社区)**
 - **权限管理**: 细粒度的角色控制 (Owner, Editor, Viewer)。
+- **讨论区**: 针对 Prompt 发起专门的讨论 (Discussion Threads)，支持状态追踪 (Open/Resolved)。
+- **评论互动**: 支持多级评论回复与点赞，促进团队交流。
 - **所有权关联**: 自动关联创建者，支持匿名数据的“认领”机制。
 - **开发者 SDK**: 提供标准 API Token 与集成代码示例。
 

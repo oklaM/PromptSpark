@@ -64,11 +64,30 @@ Authorization: Bearer <your_jwt_token>
 
 ---
 
-## 3. 协作与评测 (Collaboration)
+## 3. 协作与社区 (Collaboration & Community)
 
-*   `POST /api/evals`: 记录评测日志。
-*   `POST /api/collaboration/comments`: 发表评论。
-*   `GET /api/collaboration/permissions/:promptId`: 获取权限列表。
+### 权限管理 (Permissions)
+*   `POST /api/collaboration/permissions/grant`: 授予权限 (Body: `{ promptId, userId, role }`)
+*   `DELETE /api/collaboration/permissions/:permissionId`: 撤销权限
+*   `GET /api/collaboration/prompts/:promptId/permissions`: 获取权限列表
+*   `GET /api/collaboration/prompts/:promptId/check-permission`: 检查当前用户权限
+
+### 评论 (Comments)
+*   `POST /api/collaboration/comments`: 发表评论 (Body: `{ promptId, content, parentId? }`)
+*   `GET /api/collaboration/prompts/:promptId/comments`: 获取评论列表
+*   `DELETE /api/collaboration/comments/:commentId`: 删除评论
+*   `POST /api/collaboration/comments/:commentId/like`: 点赞评论
+
+### 讨论区 (Discussions)
+*   `POST /api/collaboration/discussions`: 发起讨论 (Body: `{ promptId, title, description }`)
+*   `GET /api/collaboration/prompts/:promptId/discussions`: 获取讨论列表
+*   `PUT /api/collaboration/discussions/:discussionId/status`: 更新状态 (Body: `{ status: 'open'|'resolved'|'closed' }`)
+
+### 评测与打分 (Ratings & Evals)
+*   `POST /api/evals`: 记录模型运行评测日志。
+*   `POST /api/collaboration/ratings`: 提交多维评分 (Body: `{ promptId, score, helpfulness, accuracy, relevance }`)
+*   `GET /api/collaboration/prompts/:promptId/ratings`: 获取评分详情
+*   `GET /api/collaboration/prompts/:promptId/stats`: 获取聚合统计数据
 
 ---
 
