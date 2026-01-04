@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, X, ArrowRight, Wand2, Loader2 } from 'lucide-react';
+import { Check, X, Wand2, Loader2 } from 'lucide-react';
 
 interface OptimizeModalProps {
   isOpen: boolean;

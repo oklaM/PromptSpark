@@ -24,7 +24,7 @@ export function LoginForm({ onClose, onSwitchToRegister }: LoginFormProps) {
     }
     setLoading(true);
     try {
-      const res = await authService.login(username, password);
+      const res = await authService.login({ username, password });
       if (res && res.token) {
         setAuth(res.token, res.data);
         show('登录成功', 'success');

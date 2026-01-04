@@ -34,10 +34,12 @@
   },
   "lint-staged": {
     "backend/**/*.{ts,js}": [
-      "npm run lint -w backend"
+      "npm run lint -w backend",
+      "bash -c \"tsc -p backend/tsconfig.json --noEmit\""
     ],
     "frontend/**/*.{ts,tsx}": [
-      "npm run lint -w frontend"
+      "npm run lint -w frontend",
+      "bash -c \"tsc -p frontend/tsconfig.json --noEmit\""
     ],
     "extension/**/*.{ts,tsx}": [
       "bash -c \"npm run build -w extension\""
