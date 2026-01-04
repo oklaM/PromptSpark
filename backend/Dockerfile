@@ -10,7 +10,7 @@ COPY extension/package.json extension/
 
 # Install dependencies from root
 # We install all deps (including dev) to ensure build works
-RUN npm install
+RUN npm install -registry=https://registry.npmmirror.com
 
 # Copy backend source code
 COPY backend/ backend/

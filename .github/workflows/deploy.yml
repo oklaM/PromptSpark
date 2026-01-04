@@ -1,0 +1,68 @@
+name: Deploy to Production
+
+on:
+  workflow_run:
+    workflows: ["Docker Publish"]
+    types: [completed]
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Tencent Cloud
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add Host Key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
+
+      - name: Copy Compose File
+        run: |
+          scp docker-compose.prod.yml ${{ secrets.USERNAME }}@${{ secrets.HOST }}:~/docker-compose.yml
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          USERNAME: ${{ github.actor }}
+          REGISTRY: ghcr.io
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: GITHUB_TOKEN,USERNAME,REGISTRY
+          script: |
+            # Login to GitHub Container Registry
+            echo $GITHUB_TOKEN | docker login ghcr.io -u $USERNAME --password-stdin
+
+            # Pull latest images
+            docker compose pull
+
+            # Update containers
+            # Pass secrets as env vars if needed, or rely on .env file on server
+            # Here assuming DB_PASSWORD etc are set in ~/.bashrc or .env on server
+            # Or we can pass them from GitHub Secrets:
+            export DOMAIN=${{ secrets.DOMAIN }}
+            export DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            export ACME_EMAIL=${{ secrets.ACME_EMAIL }}
+            
+            docker compose up -d
+
+            # Cleanup unused images
+            docker image prune -f

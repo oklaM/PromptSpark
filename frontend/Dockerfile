@@ -10,7 +10,7 @@ COPY frontend/package.json frontend/
 COPY extension/package.json extension/
 
 # Install dependencies
-RUN npm install
+RUN npm install -registry=https://registry.npmmirror.com
 
 # Copy frontend source
 COPY frontend/ frontend/

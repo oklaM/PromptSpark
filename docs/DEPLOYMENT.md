@@ -1,128 +1,92 @@
-# PromptSpark 部署指南 (v2.4)
+# 🚀 自动化部署指南 (Deployment Guide)
 
-## 本地部署
-
-### 前置要求
-- Node.js >= 18.0.0
-- npm >= 9.0.0
-- PostgreSQL >= 14 (推荐) 或 SQLite3
-
-### 步骤
-
-1. **安装依赖**
-```bash
-npm install
-```
-
-2. **配置环境**
-```bash
-cp backend/.env.example backend/.env
-# 编辑 backend/.env
-# 配置数据库连接 (PostgreSQL 示例)
-# DB_HOST=localhost
-# DB_PORT=5432
-# DB_NAME=promptspark
-# DB_USER=postgres
-# DB_PASSWORD=yourpassword
-#
-# 配置 AI 服务 (Gemini/DeepSeek)
-# AI_PROVIDER=gemini
-# AI_API_KEY=your_api_key
-```
-
-3. **启动应用**
-```bash
-npm run dev
-```
+PromptSpark 已经配置了完整的自动化 CI/CD 流程。本指南将帮助您配置腾讯云服务器并开启自动部署功能。
 
 ---
 
-## Docker 部署 (推荐)
+## 📋 部署流程概览
 
-### docker-compose.yml
-
-```yaml
-version: '3.8'
-
-services:
-  db:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
-      POSTGRES_DB: ${DB_NAME:-promptspark}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-
-  app:
-    build: .
-    ports:
-      - "5000:5000" # API
-      - "3000:3000" # Web
-    environment:
-      - NODE_ENV=production
-      - PORT=5000
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_NAME=${DB_NAME:-promptspark}
-      - DB_USER=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-postgres}
-      - JWT_SECRET=${JWT_SECRET}
-      - AI_API_KEY=${AI_API_KEY}
-    depends_on:
-      - db
-    restart: unless-stopped
-
-volumes:
-  postgres_data:
-```
-
-### 启动
-
-```bash
-docker-compose up -d
-```
+1. **Push Code**: 代码推送到 `master` 分支。
+2. **CI Pipeline**: 自动运行测试、代码检查和构建。
+3. **Docker Publish**: 构建 Docker 镜像并推送到 GitHub Container Registry (GHCR)。
+4. **Deploy Pipeline**: 自动连接到腾讯云服务器，拉取最新镜像并重启服务。
 
 ---
 
-## 环境变量说明
+## 🛠️ 服务器准备
 
-| 变量名 | 必填 | 默认值 | 描述 |
-|--------|------|--------|------|
-| PORT | 否 | 5000 | 后端监听端口 |
-| DB_HOST | 否 | localhost | 数据库主机 |
-| DB_PORT | 否 | 5432 | 数据库端口 |
-| DB_NAME | 否 | promptspark | 数据库名 |
-| DB_USER | 否 | postgres | 数据库用户 |
-| DB_PASSWORD | 否 | postgres | 数据库密码 |
-| JWT_SECRET | 是 | - | 用户认证加密密钥 |
-| AI_API_KEY | 否 | - | Gemini/DeepSeek API Key |
-| AI_PROVIDER | 否 | gemini | AI 服务商 (gemini/deepseek) |
-
----
-
-## 数据库维护
-
-### 备份
-使用 `pg_dump` 备份 PostgreSQL 数据库：
-```bash
-docker-compose exec db pg_dump -U postgres promptspark > backup.sql
-```
-
-### 迁移
-后端应用启动时会自动检测 schema 变更并执行必要的迁移（如添加 `metadata` 列）。
+1. **系统要求**: Ubuntu 20.04/22.04 LTS 或 CentOS 7+。
+2. **安装 Docker & Docker Compose**:
+   ```bash
+   # 安装 Docker
+   curl -fsSL https://get.docker.com | sh
+   
+   # 启动 Docker
+   sudo systemctl enable --now docker
+   
+   # 验证 Docker Compose (新版 Docker 自带)
+   docker compose version
+   ```
 
 ---
 
-## 生产环境安全建议
+## 🔐 GitHub Secrets 配置
 
-1. **强密钥**: 务必在生产环境更改 `JWT_SECRET`。
-2. **HTTPS**: 强烈建议通过 Nginx 配置 SSL。
-3. **API Token**: 提醒用户定期更换开发者 Token。
-4. **AI 配额**: 监控 AI API Key 的使用量，防止超额扣费。
+在 GitHub 仓库的 `Settings` -> `Secrets and variables` -> `Actions` -> `New repository secret` 中添加以下变量：
+
+| Secret 名称 | 说明 | 示例值 |
+|-------------|------|--------|
+| `HOST` | 服务器 IP 地址 | `123.45.67.89` |
+| `USERNAME` | SSH 登录用户名 | `ubuntu` 或 `root` |
+| `SSH_PRIVATE_KEY` | SSH 私钥内容 | `-----BEGIN OPENSSH PRIVATE KEY...` |
+| `DB_PASSWORD` | 生产环境数据库密码 | `StrongPassword123!` |
+| `DOMAIN` | 你的域名 (用于 Traefik) | `promptspark.com` |
+| `ACME_EMAIL` | 用于 Let's Encrypt 证书申请的邮箱 | `admin@promptspark.com` |
+
+### 如何获取 SSH Private Key?
+
+1. 在本地生成密钥对（如果还没有）：
+   ```bash
+   ssh-keygen -t ed25519 -C "deploy@promptspark" -f deploy_key
+   ```
+2. 将公钥 (`deploy_key.pub`) 内容添加到服务器的 `~/.ssh/authorized_keys` 文件中。
+3. 将私钥 (`deploy_key`) 内容复制到 GitHub Secret `SSH_PRIVATE_KEY`。
 
 ---
 
-*最后更新：2026 年 1 月 1 日*
+## 📂 生产环境配置 (docker-compose.prod.yml)
+
+自动部署会使用 `docker-compose.prod.yml` 文件。主要服务包括：
+
+- **Traefik**: 反向代理与自动 HTTPS 证书管理。
+- **Backend**: Node.js API 服务。
+- **Frontend**: Nginx 静态文件服务。
+- **Postgres**: 数据库。
+- **Redis**: 缓存。
+- **Watchtower**: (可选) 自动更新容器。
+- **Uptime Kuma**: (可选) 监控服务状态。
+
+> **注意**: 首次部署前，请确保域名 `DOMAIN` 已经解析到服务器 IP，否则 Traefik 申请 SSL 证书会失败。
+
+---
+
+## 🚀 手动触发部署
+
+除了自动触发，您也可以手动部署：
+
+1. 进入 GitHub 仓库 -> `Actions` 标签页。
+2. 选择左侧的 `Deploy to Production`。
+3. 点击右侧的 `Run workflow` 按钮。
+
+---
+
+## ❓ 常见问题排查
+
+**Q: 部署失败，提示 "Permission denied (publickey)"**
+A: 请检查 `SSH_PRIVATE_KEY` 是否正确复制，且对应的公钥已添加到服务器的 `authorized_keys`。
+
+**Q: 镜像拉取失败 "denied: installation not allowed to Create organization package"**
+A: 确保 Docker Publish 工作流成功运行，并且 `GITHUB_TOKEN` 有权限访问 GHCR。通常在个人仓库中默认有权限。
+
+**Q: Traefik 证书获取失败**
+A: 检查 `docker-compose.prod.yml` 中的邮箱是否已修改为您自己的邮箱，并确保 DNS 解析已生效。

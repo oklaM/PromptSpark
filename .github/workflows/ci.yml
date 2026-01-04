@@ -6,10 +6,44 @@ on:
   pull_request:
     branches: [ "master" ]
 
-jobs:
-  build-and-test:
-    runs-on: ubuntu-latest
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
+jobs:
+  # Detect changes to skip unnecessary jobs
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      extension: ${{ steps.filter.outputs.extension }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.github/workflows/ci.yml'
+            frontend:
+              - 'frontend/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.github/workflows/ci.yml'
+            extension:
+              - 'extension/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.github/workflows/ci.yml'
+
+  backend-ci:
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' }}
+    runs-on: ubuntu-latest
     services:
       postgres:
         image: postgres:15-alpine
@@ -19,41 +53,95 @@ jobs:
           POSTGRES_DB: promptspark_test
         ports:
           - 5432:5432
-        # Wait for postgres to be ready
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Use Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'npm'
-        
-    - name: Install Dependencies
-      run: npm install
-      
-    - name: Build Backend
-      run: npm run build -w backend
-      
-    - name: Build Frontend
-      run: npm run build -w frontend
-      
-    - name: Build Extension
-      run: npm run build -w extension
 
-    - name: Run Tests
-      env:
-        DB_HOST: 127.0.0.1
-        DB_PORT: 5432
-        DB_USER: postgres
-        DB_PASSWORD: password
-        DB_NAME: promptspark_test
-        NODE_ENV: test
-        JWT_SECRET: test_secret
-      run: npm test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Lint Backend
+        run: npm run lint -w backend
+
+      - name: Type Check Backend
+        run: npx tsc -p backend/tsconfig.json --noEmit
+
+      - name: Run Tests
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASSWORD: password
+          DB_NAME: promptspark_test
+          NODE_ENV: test
+          JWT_SECRET: test_secret_key_for_ci
+        run: npm test -w backend
+
+      - name: Build Backend
+        run: npm run build -w backend
+
+      - name: Security Scan (FS)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: 'backend'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+
+  frontend-ci:
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Lint Frontend
+        run: npm run lint -w frontend
+
+      - name: Type Check Frontend
+        run: npx tsc -p frontend/tsconfig.json --noEmit
+
+      - name: Run Tests
+        run: npm test -w frontend
+
+      - name: Build Frontend
+        run: npm run build -w frontend
+
+  extension-ci:
+    needs: changes
+    if: ${{ needs.changes.outputs.extension == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Extension
+        run: npm run build -w extension
