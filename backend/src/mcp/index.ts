@@ -167,7 +167,7 @@ async function main() {
         const limit = Number(request.params.arguments?.limit) || 10;
         
         const sql = `
-          SELECT id, title, description, content, tags 
+          SELECT id, title, description, content 
           FROM prompts 
           WHERE title ILIKE $1 OR content ILIKE $1 OR description ILIKE $1
           LIMIT $2

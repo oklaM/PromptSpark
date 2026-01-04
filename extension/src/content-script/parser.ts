@@ -95,7 +95,10 @@ export function parsePromptsFromHtml(html: HTMLElement): { positive: string; neg
   // Try to find prompt containers
   const promptContainers = html.querySelectorAll('.prompt-container, .prompt, .generation-info, [class*="prompt"]');
   
-  promptContainers.forEach(container => {
+  // If no internal containers found, check if the html element itself is a container
+  const elementsToProcess = promptContainers.length > 0 ? Array.from(promptContainers) : [html];
+  
+  elementsToProcess.forEach(container => {
     const text = container.textContent || '';
     
     // Look for positive/negative prompt indicators
@@ -109,18 +112,12 @@ export function parsePromptsFromHtml(html: HTMLElement): { positive: string; neg
         }
       }
     } else if (text.includes('Negative prompt:') || text.includes('Negative:')) {
-      if (!positive) {
-        // Try to get positive prompt from previous element
-        const prevElement = container.previousElementSibling;
-        if (prevElement) {
-          positive = prevElement.textContent?.trim() || '';
-        }
-      }
-      const negMatch = text.match(/Negative\s*prompt?:\s*(.+)/i);
+      // If we already have positive from another container, just update negative
+      const negMatch = text.match(/Negative\s*prompt?:\s*(.+)/is);
       if (negMatch) {
         negative = negMatch[1].trim();
       }
-    } else if (!positive && !negative) {
+    } else if (!positive && !negative && text.trim()) {
       // Fallback: assume this is the positive prompt
       positive = text.trim();
     }
