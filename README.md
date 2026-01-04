@@ -18,6 +18,11 @@ PromptSpark 是专为 AI 工作者与 Prompt 工程师设计的全能平台。�
 - **自动打标**: AI 自动提取标签与分类，无需手动录入。
 - **AI 优化对比**: 独家 **Diff 视图**，直观展示 AI 优化前后的每一个改动点。
 
+🤖 **MCP Support (模型上下文协议)**
+- **无缝连接**: 让 Claude Desktop 直接连接您的本地 PromptSpark 库。
+- **智能检索**: 通过自然语言（"帮我找个写代码的提示词"）直接调用本地资产。
+- **工具集成**: 提供 `search_prompts` 和 `ask_librarian` 工具供 AI 助手调用。
+
 🔌 **Chrome Extension Hook (流量入口)**
 - **一键采集**: 在 Civitai 等网站自动注入“Spark Capture”按钮，抓取 Prompt、Seed、Model、Sampler 等全套参数。
 - **云端同步**: 插件端一键将本地抓取的数据同步到 PromptSpark Web 平台。
@@ -46,20 +51,16 @@ PromptSpark 是专为 AI 工作者与 Prompt 工程师设计的全能平台。�
 PromptSpark/
 ├── backend/                 # Node.js + Express 后端 (MVC 架构)
 │   ├── src/
-│   │   ├── models/         # 业务逻辑与 DB 封装 (支持 PostgreSQL/SQLite)
-│   │   ├── routes/         # RESTful API 路由
-│   │   └── services/       # AI 服务 (Gemini/DeepSeek)
-│   └── tests/              # 集成测试
+│   │   ├── mcp/            # MCP Server 实现
+│   │   ├── models/         # 业务逻辑与 DB 封装
+│   │   └── ...
+│   └── ...
 │
 ├── frontend/               # React + TypeScript 前端 (Vite)
-│   ├── src/
-│   │   ├── components/     # 60+ 响应式功能组件 (含 AI 优化面板)
-│   │   └── services/       # API 客户端
+│   └── ...
 │
 └── extension/              # Chrome Extension (Manifest V3)
-    ├── src/
-    │   ├── content-script/ # 页面注入与参数解析器
-    │   └── App.tsx         # Popup UI (含同步功能)
+    └── ...
 ```
 
 ---
@@ -86,16 +87,18 @@ cp backend/.env.example backend/.env
 npm run dev # 同时启动 Web (3000), API (5000) 和 Extension 构建
 ```
 
-4. **加载插件**
-   - 打开 Chrome -> `chrome://extensions/`
-   - 开启 "开发者模式"
-   - 点击 "加载已解压的扩展程序"，选择 `extension/dist` 目录。
+4. **MCP 服务 (可选)**
+```bash
+# 注册到 Claude Desktop，请参考 MCP 指南
+npm run mcp -w backend
+```
 
 ---
 
 ## 📚 详细文档
 
-- [商业化架构设计](docs/COMMERCIAL_ARCHITECTURE.md) - **NEW!** 盈利模式与数据流转
+- [MCP 集成指南](docs/MCP_GUIDE.md) - **NEW!** 连接 Claude Desktop
+- [商业化架构设计](docs/COMMERCIAL_ARCHITECTURE.md) - 盈利模式与数据流转
 - [插件规格说明](docs/lite.md) - Chrome 插件采集与同步机制
 - [API 使用指南](docs/API.md) - 完整接口参考
 - [开发演进路线图](docs/ROADMAP_AND_REQUIREMENTS.md) - 版本计划与现状
@@ -105,7 +108,7 @@ npm run dev # 同时启动 Web (3000), API (5000) 和 Extension 构建
 ## 🛠️ 技术栈
 
 - **Frontend**: React 18, TypeScript, Tailwind CSS, Zustand, Lucide Icons.
-- **Backend**: Node.js, Express, PostgreSQL/SQLite, JWT.
+- **Backend**: Node.js, Express, PostgreSQL/SQLite, JWT, **MCP SDK**.
 - **Extension**: Manifest V3, React, CRXJS.
 - **AI**: Google Gemini, DeepSeek, OpenAI.
 
@@ -117,5 +120,5 @@ MIT License - 可自由使用和修改
 
 ---
 
-**版本：2.4.0 - Commercial Ready** 🚀
-**更新日期：2026 年 1 月 1 日**
+**版本：2.5.0 - Feature Release (MCP)** 🚀
+**更新日期：2026 年 1 月 4 日**
