@@ -1,0 +1,67 @@
+[
+  {
+    "title": "Python Expert Code Reviewer",
+    "description": "Acts as a senior Python developer to review code for best practices, PEP8 compliance, and potential bugs.",
+    "content": "I want you to act as a senior Python developer. I will provide you with a piece of Python code. You will review my code and provide suggestions for improvement, focusing on:\n1. Adherence to PEP 8 style guide.\n2. Code readability and maintainability.\n3. Performance optimizations.\n4. Potential bugs or edge cases.\n5. Usage of modern Python features (type hinting, dataclasses, etc.).\n\nPlease provide the review in a constructive manner, explaining 'why' a change is suggested.",
+    "category": "coding",
+    "tags": ["python", "code-review", "best-practices", "development"]
+  },
+  {
+    "title": "Stable Diffusion Realistic Portrait",
+    "description": "High-quality prompt for generating photorealistic portraits using Stable Diffusion.",
+    "content": "portrait of a young woman, natural skin texture, 8k, photorealistic, cinematic lighting, soft focus, depth of field, detailed eyes, masterpiece, best quality, shot on 35mm lens, f/1.8, bokeh background",
+    "category": "art",
+    "tags": ["stable-diffusion", "portrait", "photorealistic", "8k"],
+    "metadata": {
+      "model": "Realistic Vision V5.1",
+      "sampler": "DPM++ 2M Karras",
+      "steps": 30,
+      "cfgScale": 7
+    }
+  },
+  {
+    "title": "Midjourney Architecture Design",
+    "description": "Generate futuristic architectural concepts.",
+    "content": "futuristic parametric architecture, organic shapes, biophilic design, glass and steel facade, integrated greenery, vertical forest, soft warm lighting, twilight hour, unreal engine 5 render, architectural photography --ar 16:9 --v 5.2",
+    "category": "art",
+    "tags": ["midjourney", "architecture", "design", "futuristic"],
+    "metadata": {
+      "source": "Midjourney"
+    }
+  },
+  {
+    "title": "SQL Query Optimizer",
+    "description": "Optimize complex SQL queries for better performance.",
+    "content": "I will provide you with a SQL query (PostgreSQL). Please analyze the query plan and suggest indexes or rewriting strategies to improve its execution time. Explain the difference in complexity (Big O notation if applicable) and why your solution is faster.",
+    "category": "coding",
+    "tags": ["sql", "database", "optimization", "postgresql"]
+  },
+  {
+    "title": "Technical Writer for API Documentation",
+    "description": "Convert raw code or brief descriptions into professional API documentation.",
+    "content": "Act as a technical writer. I will give you a function signature or a rough description of an API endpoint. You will generate professional documentation including:\n- A clear summary.\n- Parameters table (Name, Type, Required, Description).\n- Return value description.\n- An example Request and Response (JSON).\n- Common error codes.",
+    "category": "writing",
+    "tags": ["documentation", "api", "technical-writing"]
+  },
+  {
+    "title": "Creative Story Writer",
+    "description": "Collaborative storytelling partner for fiction.",
+    "content": "I want you to act as a creative writing partner. I will give you a premise or a plot point. You will help me expand on it, suggesting character motivations, plot twists, and sensory details to make the scene more immersive. Do not write the whole story for me, but provide 3 distinct directions the story could take from here.",
+    "category": "writing",
+    "tags": ["creative-writing", "storytelling", "fiction"]
+  },
+  {
+    "title": "Git Commit Message Generator",
+    "description": "Generate semantic git commit messages from diffs.",
+    "content": "I will paste a `git diff` output. You will generate a commit message following the Conventional Commits specification (e.g., feat: ..., fix: ...). The message should have a concise subject line (under 50 chars) and a bulleted body explaining 'what' and 'why' changes were made.",
+    "category": "coding",
+    "tags": ["git", "devtools", "productivity"]
+  },
+  {
+    "title": "React Component Generator",
+    "description": "Create accessible, typed React components with Tailwind CSS.",
+    "content": "Create a React Functional Component using TypeScript and Tailwind CSS. The component should be accessible (a11y friendly) and robust. I will describe the UI element I need (e.g., a Modal, a Dropdown). You will provide the code, including interface definitions for props.",
+    "category": "coding",
+    "tags": ["react", "typescript", "tailwindcss", "frontend"]
+  }
+]
