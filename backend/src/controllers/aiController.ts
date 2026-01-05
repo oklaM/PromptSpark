@@ -90,7 +90,7 @@ export class AiController {
       });
 
       for await (const chunk of stream) {
-        const text = chunk.text();
+        const text = chunk;
         res.write(`data: ${JSON.stringify({ text })}\n\n`);
       }
 

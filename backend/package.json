@@ -16,8 +16,11 @@
     "lint": "eslint src --ext .ts"
   },
   "dependencies": {
+    "@ai-sdk/google": "^3.0.2",
+    "@ai-sdk/openai": "^3.0.2",
     "@google/generative-ai": "^0.24.1",
     "@modelcontextprotocol/sdk": "^1.25.1",
+    "ai": "^6.0.7",
     "body-parser": "^1.20.2",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",

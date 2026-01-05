@@ -226,7 +226,7 @@ Return ONLY the ID (or null) as a raw string. No JSON, no Markdown.
         try {
           const stream = await AiService.runPromptStream(selectionPrompt);
           for await (const chunk of stream) {
-              selectedId += chunk.text();
+              selectedId += chunk;
           }
         } catch (e) {
           console.error("AI Librarian failed:", e);
