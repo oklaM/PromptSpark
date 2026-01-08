@@ -43,9 +43,9 @@ export class AiService {
        
        const deepseek = createOpenAI({
            apiKey: key,
-           baseURL: config?.baseURL || process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
+           baseURL: config?.baseURL || process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com/v1',
        });
-       return deepseek(config?.model || 'deepseek-chat');
+       return deepseek.chat(config?.model || 'deepseek-chat');
     }
 
     // Default to Gemini
