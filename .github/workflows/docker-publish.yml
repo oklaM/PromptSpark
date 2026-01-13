@@ -52,7 +52,7 @@ jobs:
             type=ref,event=branch
             type=ref,event=pr
             type=semver,pattern={{version}}
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' || github.event.workflow_run.head_branch == 'master' }}
+            type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix={{branch}}-,format=short
 
       - name: Build and push Docker image
@@ -66,12 +66,21 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          provenance: false
 
       # Post-build Security Scan
+      # Scan using the first tag from metadata (guaranteed to exist since we just pushed it)
+      - name: Extract first tag for scanning
+        id: scan-tag
+        run: |
+          TAGS="${{ steps.meta.outputs.tags }}"
+          FIRST_TAG=$(echo "$TAGS" | head -n 1)
+          echo "tag=$FIRST_TAG" >> $GITHUB_OUTPUT
+
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.service }}:latest
+          image-ref: ${{ steps.scan-tag.outputs.tag }}
           format: 'table'
           exit-code: '0' # Don't fail the build for now, just report
           ignore-unfixed: true
