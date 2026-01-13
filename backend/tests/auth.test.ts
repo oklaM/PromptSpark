@@ -84,13 +84,13 @@ describe('Authentication API', () => {
   describe('POST /api/auth/login', () => {
     test('should login successfully with correct credentials', async () => {
       const hashedPassword = await bcrypt.hash('password123', 10);
-      
-      // Mock: Fetch user returns record
+
+      // Mock: Fetch user returns record (PostgreSQL uses lowercase column names)
       mocks.get.mockResolvedValueOnce({
         id: 'user-id',
         username: 'testuser',
-        passwordHash: hashedPassword,
-        displayName: 'Test User'
+        passwordhash: hashedPassword,
+        displayname: 'Test User'
       });
 
       const res = await request(app)
@@ -107,12 +107,12 @@ describe('Authentication API', () => {
 
     test('should fail login with incorrect password', async () => {
       const hashedPassword = await bcrypt.hash('password123', 10);
-      
-      // Mock: Fetch user returns record
+
+      // Mock: Fetch user returns record (PostgreSQL uses lowercase column names)
       mocks.get.mockResolvedValueOnce({
         id: 'user-id',
         username: 'testuser',
-        passwordHash: hashedPassword
+        passwordhash: hashedPassword
       });
 
       const res = await request(app)

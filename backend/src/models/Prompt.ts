@@ -428,6 +428,9 @@ export class PromptModel {
   }
 
   static async incrementViews(id: string): Promise<void> {
+    // Invalidate cache before incrementing
+    cacheService.delete(CacheKeys.PROMPT_BY_ID(id));
+
     await database.run(
       `UPDATE prompts SET views = views + 1 WHERE id = ?`,
       [id]
