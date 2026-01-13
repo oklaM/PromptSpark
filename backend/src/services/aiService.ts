@@ -2,7 +2,7 @@ import { generateObject, streamText, generateText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { z } from 'zod';
-import OpenAI from 'openai'; // Used for listing models specific to OpenAI-compatible APIs
+import OpenAI from 'openai';
 
 export interface AiAnalysisResult {
   title?: string;
@@ -20,42 +20,87 @@ export interface PromptDiagnosis {
   suggestions: string[];
 }
 
+export interface AiConfig {
+  apiKey?: string;
+  baseURL?: string;
+  provider?: string;
+  model?: string;
+}
+
+type AiProvider = 'deepseek' | 'gemini';
+
+const KEYWORDS = {
+  coding: [
+    'function', 'code', 'api', 'class', 'import', 'const', 'var', 'let',
+    'return', 'interface', 'sql', 'database', 'react', 'node', 'python',
+    'java', 'css', 'html', 'json', 'xml', 'script',
+  ],
+  writing: [
+    'story', 'write', 'essay', 'poem', 'blog', 'article', 'character',
+    'plot', 'narrative', 'description', 'text', 'draft', 'copy',
+  ],
+  analysis: [
+    'analyze', 'data', 'report', 'summary', 'chart', 'trend', 'statistics',
+    'forecast', 'review', 'audit',
+  ],
+} as const;
+
+const DEFAULT_DEEPSEEK_MODEL = 'deepseek-chat';
+const DEFAULT_GEMINI_MODEL = 'gemini-pro'; // Use stable gemini-pro model
+const DEFAULT_DEEPSEEK_BASE_URL = 'https://api.deepseek.com/v1';
+
+function getProvider(config?: AiConfig): AiProvider {
+  const provider = config?.provider === 'auto' ? undefined : config?.provider;
+  const envProvider = process.env.AI_PROVIDER as AiProvider | undefined;
+  const modelHint = config?.model;
+
+  if (modelHint?.startsWith('deepseek')) return 'deepseek';
+  if (provider === 'deepseek') return 'deepseek';
+  if (provider === 'gemini') return 'gemini';
+  if (envProvider === 'deepseek') return 'deepseek';
+
+  return 'gemini';
+}
+
+function getApiKey(provider: AiProvider, config?: AiConfig): string {
+  const envKey = provider === 'deepseek'
+    ? process.env.DEEPSEEK_API_KEY
+    : process.env.AI_API_KEY;
+
+  if (config?.apiKey) return config.apiKey;
+  if (envKey) return envKey;
+
+  throw new Error(`${provider === 'deepseek' ? 'DeepSeek' : 'Gemini'} API Key is required`);
+}
+
+function getBaseURL(config?: AiConfig): string {
+  return config?.baseURL || process.env.DEEPSEEK_BASE_URL || DEFAULT_DEEPSEEK_BASE_URL;
+}
+
+function createDeepSeekModel(config?: AiConfig) {
+  const key = getApiKey('deepseek', config);
+  const baseURL = getBaseURL(config);
+
+  const client = createOpenAI({ apiKey: key, baseURL });
+  return client.chat(config?.model || DEFAULT_DEEPSEEK_MODEL);
+}
+
+function createGeminiModel(config?: AiConfig) {
+  const key = getApiKey('gemini', config);
+
+  const client = createGoogleGenerativeAI({ apiKey: key });
+  return client(config?.model || DEFAULT_GEMINI_MODEL);
+}
+
 export class AiService {
-  private static readonly KEYWORDS = {
-    coding: ['function', 'code', 'api', 'class', 'import', 'const', 'var', 'let', 'return', 'interface', 'sql', 'database', 'react', 'node', 'python', 'java', 'css', 'html', 'json', 'xml', 'script'],
-    writing: ['story', 'write', 'essay', 'poem', 'blog', 'article', 'character', 'plot', 'narrative', 'description', 'text', 'draft', 'copy'],
-    analysis: ['analyze', 'data', 'report', 'summary', 'chart', 'trend', 'statistics', 'forecast', 'review', 'audit'],
-    other: []
-  };
+  private static getModel(config?: AiConfig) {
+    const provider = getProvider(config);
 
-  private static getModel(config: { apiKey?: string; baseURL?: string; provider?: string; model?: string }) {
-    const provider = (config?.provider === 'auto' ? undefined : config?.provider) || process.env.AI_PROVIDER;
-    const deepSeekKey = (provider === 'deepseek' ? config?.apiKey : undefined) || process.env.DEEPSEEK_API_KEY;
-    const geminiKey = (provider === 'gemini' ? config?.apiKey : undefined) || process.env.AI_API_KEY;
-    
-    // Fallback keys if provider not strictly matched but key provided in config
-    const apiKey = config?.apiKey;
-
-    // Prioritize DeepSeek or OpenAI-compatible
-    if (provider === 'deepseek' || (config?.model && config.model.startsWith('deepseek'))) {
-       const key = deepSeekKey || apiKey;
-       if (!key) throw new Error('DeepSeek API Key is required');
-       
-       const deepseek = createOpenAI({
-           apiKey: key,
-           baseURL: config?.baseURL || process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com/v1',
-       });
-       return deepseek.chat(config?.model || 'deepseek-chat');
+    if (provider === 'deepseek') {
+      return createDeepSeekModel(config);
     }
 
-    // Default to Gemini
-    const key = geminiKey || apiKey;
-    if (!key) throw new Error('Gemini API Key is required');
-
-    const google = createGoogleGenerativeAI({
-        apiKey: key,
-    });
-    return google(config?.model || 'gemini-1.5-flash');
+    return createGeminiModel(config);
   }
 
   /**
@@ -63,34 +108,33 @@ export class AiService {
    */
   static async diagnosePrompt(
     content: string,
-    config?: { apiKey?: string; baseURL?: string; provider?: string; model?: string }
+    config?: AiConfig,
   ): Promise<PromptDiagnosis> {
-     const diagnosisSchema = z.object({
-        score: z.number().describe('Score from 0 to 100 based on overall quality'),
-        clarity: z.string().describe('Short analysis of clarity'),
-        safety: z.string().describe('Short analysis of potential safety issues'),
-        logic: z.string().describe('Short analysis of logical gaps'),
-        suggestions: z.array(z.string()).describe('List of 3 improvement suggestions'),
-     });
+    const diagnosisSchema = z.object({
+      score: z.number().describe('Score from 0 to 100 based on overall quality'),
+      clarity: z.string().describe('Short analysis of clarity'),
+      safety: z.string().describe('Short analysis of potential safety issues'),
+      logic: z.string().describe('Short analysis of logical gaps'),
+      suggestions: z.array(z.string()).describe('List of 3 improvement suggestions'),
+    });
 
-     try {
-         const model = this.getModel(config || {});
-         const { object } = await generateObject({
-             model,
-             schema: diagnosisSchema,
-             prompt: `Act as a strict Prompt Engineer. Analyze the following prompt for Clarity, Safety, and Logical consistency.\n\nPrompt: "${content}"`,
-         });
-         return object;
-     } catch (error) {
-         console.error('Diagnosis Error:', error);
-         return {
-            score: 0,
-            clarity: "AI Diagnosis unavailable.",
-            safety: "Unable to check safety.",
-            logic: "Unable to check logic.",
-            suggestions: ["Check your API configuration."]
-        };
-     }
+    try {
+      const model = this.getModel(config);
+      const { object } = await generateObject({
+        model,
+        schema: diagnosisSchema,
+        prompt: `Act as a strict Prompt Engineer. Analyze the following prompt for Clarity, Safety, and Logical consistency.\n\nPrompt: "${content}"`,
+      });
+      return object;
+    } catch {
+      return {
+        score: 0,
+        clarity: 'AI Diagnosis unavailable.',
+        safety: 'Unable to check safety.',
+        logic: 'Unable to check logic.',
+        suggestions: ['Check your API configuration.'],
+      };
+    }
   }
 
   /**
@@ -99,19 +143,26 @@ export class AiService {
   static async optimizePrompt(
     content: string,
     goal: 'quality' | 'detail' | 'creative' | 'clarity' = 'quality',
-    config?: { apiKey?: string; baseURL?: string; provider?: string; model?: string }
+    config?: AiConfig,
   ): Promise<{ original: string; optimized: string; changes: string[] }> {
-    const optimizationSchema = z.object({
-        optimized: z.string().describe('The fully optimized prompt text'),
-        changes: z.array(z.string()).describe('List of key changes made'),
-    });
-
     try {
-        const model = this.getModel(config || {});
+      const model = this.getModel(config);
+
+      // Check if using DeepSeek (doesn't support structured output)
+      const provider = getProvider(config);
+      const useStructured = provider === 'gemini';
+
+      if (useStructured) {
+        // Use generateObject for Gemini
+        const optimizationSchema = z.object({
+          optimized: z.string().describe('The fully optimized prompt text'),
+          changes: z.array(z.string()).describe('List of key changes made'),
+        });
+
         const { object } = await generateObject({
-            model,
-            schema: optimizationSchema,
-            prompt: `Act as an Expert Prompt Engineer. OPTIMIZE the user's prompt to achieve the goal: "${goal.toUpperCase()}".
+          model,
+          schema: optimizationSchema,
+          prompt: `Act as an Expert Prompt Engineer. OPTIMIZE the user's prompt to achieve the goal: "${goal.toUpperCase()}".
 Guidelines:
 - Maintain intent.
 - Enhance descriptors.
@@ -121,17 +172,61 @@ Input Prompt: "${content}"`,
         });
 
         return {
-            original: content,
-            optimized: object.optimized,
-            changes: object.changes
+          original: content,
+          optimized: object.optimized,
+          changes: object.changes,
         };
-    } catch (error) {
-        console.error('Optimization Error:', error);
+      } else {
+        // Use generateText for DeepSeek (parse JSON response manually)
+        const { text } = await generateText({
+          model,
+          prompt: `Act as an Expert Prompt Engineer. OPTIMIZE the user's prompt to achieve the goal: "${goal.toUpperCase()}".
+
+Guidelines:
+- Maintain intent.
+- Enhance descriptors.
+- Fix grammar/logic.
+
+Input Prompt: "${content}"
+
+IMPORTANT: Return your response as a JSON object with this exact format:
+{
+  "optimized": "the optimized prompt text",
+  "changes": ["list of key changes made"]
+}
+
+Return ONLY the JSON, no other text.`,
+        });
+
+        // Parse JSON response
+        let parsed: { optimized: string; changes: string[] };
+        try {
+          // Try to extract JSON from the response
+          const jsonMatch = text.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            parsed = JSON.parse(jsonMatch[0]);
+          } else {
+            parsed = JSON.parse(text);
+          }
+        } catch (parseError) {
+          console.error('Failed to parse AI response:', text);
+          // Fallback: return original content with a note
+          return {
+            original: content,
+            optimized: text.trim() || content,
+            changes: ['Optimization completed (parsed from text response)'],
+          };
+        }
+
         return {
-            original: content,
-            optimized: content,
-            changes: ["AI service unavailable"]
+          original: content,
+          optimized: parsed.optimized || content,
+          changes: parsed.changes || ['Optimization completed'],
         };
+      }
+    } catch (error) {
+      console.error('AI optimization failed:', error);
+      throw new Error(`AI optimization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -139,55 +234,54 @@ Input Prompt: "${content}"`,
    * Analyzes prompt content to generate metadata.
    */
   static async analyzeContent(
-    data: { content?: string; title?: string; description?: string }, 
+    data: { content?: string; title?: string; description?: string },
     targetField?: string,
-    config?: { apiKey?: string; baseURL?: string; provider?: string; model?: string }
+    config?: AiConfig,
   ): Promise<AiAnalysisResult> {
     const { content, title, description } = data;
     const context = `Context: ${title ? `Title: ${title}\n` : ''}${description ? `Description: ${description}\n` : ''}${content ? `Content: ${content}\n` : ''}`;
 
     try {
-        const model = this.getModel(config || {});
-        
-        if (targetField === 'content') {
-            const { text } = await generateText({
-                model,
-                prompt: `Act as an expert prompt engineer. ${content ? 'Improve and expand' : 'Create'} a high-quality prompt based on the context.\n${context}\nReturn ONLY the prompt text.`
-            });
-            return { content: text };
-        }
+      const model = this.getModel(config);
 
-        const analysisSchema = z.object({
-            title: z.string().describe('A concise, catchy title (max 50 chars)'),
-            description: z.string().describe('A brief summary (max 120 chars)'),
-            category: z.string().describe('One of ["writing", "coding", "analysis", "other"]'),
-            tags: z.array(z.string()).describe('3-5 relevant tags'),
-            content: z.string().optional().describe('Generated prompt text if requested'),
+      if (targetField === 'content') {
+        const { text } = await generateText({
+          model,
+          prompt: `Act as an expert prompt engineer. ${content ? 'Improve and expand' : 'Create'} a high-quality prompt based on the context.\n${context}\nReturn ONLY the prompt text.`,
         });
+        return { content: text };
+      }
 
-        const { object } = await generateObject({
-            model,
-            schema: analysisSchema,
-            prompt: `Analyze the provided context and generate metadata. \n${context}`,
-        });
-        
-        return object;
+      const analysisSchema = z.object({
+        title: z.string().describe('A concise, catchy title (max 50 chars)'),
+        description: z.string().describe('A brief summary (max 120 chars)'),
+        category: z.string().describe('One of ["writing", "coding", "analysis", "other"]'),
+        tags: z.array(z.string()).describe('3-5 relevant tags'),
+        content: z.string().optional().describe('Generated prompt text if requested'),
+      });
 
-    } catch (error) {
-        console.error('Analysis Error:', error);
-        // Fallback to local
-        if (content) return this.analyzeLocally(content);
-        return {};
+      const { object } = await generateObject({
+        model,
+        schema: analysisSchema,
+        prompt: `Analyze the provided context and generate metadata. \n${context}`,
+      });
+
+      return object;
+    } catch {
+      if (content) {
+        return this.analyzeLocally(content);
+      }
+      return {};
     }
   }
 
   private static analyzeLocally(content: string): AiAnalysisResult {
     const lowerContent = content.toLowerCase();
     const tags = new Set<string>();
-    let category = '';
+    let category = 'other';
     let maxKeywordCount = 0;
 
-    for (const [cat, keywords] of Object.entries(this.KEYWORDS)) {
+    for (const [cat, keywords] of Object.entries(KEYWORDS)) {
       let matchCount = 0;
       for (const keyword of keywords) {
         if (lowerContent.includes(keyword)) {
@@ -211,8 +305,8 @@ Input Prompt: "${content}"`,
     return {
       title,
       description,
-      category: category || 'other',
-      tags: Array.from(tags).slice(0, 8)
+      category,
+      tags: Array.from(tags).slice(0, 8),
     };
   }
 
@@ -220,55 +314,67 @@ Input Prompt: "${content}"`,
    * Runs a prompt and returns a stream of generated content.
    */
   static async runPromptStream(
-    prompt: string, 
-    config: { temperature?: number, maxTokens?: number, model?: string, apiKey?: string, baseURL?: string, provider?: string } = {}
+    prompt: string,
+    config: AiConfig & { temperature?: number; maxTokens?: number } = {},
   ) {
     const model = this.getModel(config);
+    const options: { temperature?: number; maxTokens?: number } = {};
+    if (config.temperature !== undefined) {
+      options.temperature = config.temperature;
+    }
+    // Note: maxTokens is not supported by all providers in Vercel AI SDK v6
+    // It's passed through but may be ignored depending on the provider
+
     const result = await streamText({
-        model,
-        prompt,
-        temperature: config.temperature,
-        // maxTokens: config.maxTokens,
+      model,
+      prompt,
+      ...options,
     });
-    
+
     return result.textStream;
   }
 
-  static async getAvailableModels() {
-    const models: Array<{ id: string, name: string, provider: string, color: string }> = [];
-    
-    // Check for DeepSeek
-    const deepSeekKey = process.env.DEEPSEEK_API_KEY;
-    if (deepSeekKey) {
-      try {
-        const openai = new OpenAI({
-            apiKey: deepSeekKey,
-            baseURL: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'
-        });
-        const response = await openai.models.list();
-        
-        response.data.forEach(model => {
-            models.push({
-                id: model.id,
-                name: model.id.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
-                provider: 'DeepSeek',
-                color: model.id.includes('coder') ? 'bg-teal-600' : 'bg-blue-600'
-            });
-        });
-      } catch (error) {
-        console.error('Failed to fetch DeepSeek models:', error);
-      }
-    }
+  static async getAvailableModels(): Promise<Array<{ id: string; name: string; provider: string; color: string }>> {
+    const models: Array<{ id: string; name: string; provider: string; color: string }> = [];
 
-    // Check for Gemini
-    if (process.env.AI_API_KEY) {
-      models.push(
-        { id: 'gemini-pro', name: 'Gemini 1.0 Pro', provider: 'Google', color: 'bg-violet-500' },
-        { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', provider: 'Google', color: 'bg-blue-500' },
-        { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', provider: 'Google', color: 'bg-indigo-600' }
-      );
-    }
-    
+    const deepSeekModels = await this.fetchDeepSeekModels();
+    models.push(...deepSeekModels);
+
+    const geminiModels = this.getGeminiModels();
+    models.push(...geminiModels);
+
     return models;
+  }
+
+  private static async fetchDeepSeekModels(): Promise<Array<{ id: string; name: string; provider: string; color: string }>> {
+    const deepSeekKey = process.env.DEEPSEEK_API_KEY;
+    if (!deepSeekKey) return [];
+
+    try {
+      const openai = new OpenAI({
+        apiKey: deepSeekKey,
+        baseURL: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
+      });
+      const response = await openai.models.list();
+
+      return response.data.map(model => ({
+        id: model.id,
+        name: model.id.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
+        provider: 'DeepSeek',
+        color: model.id.includes('coder') ? 'bg-teal-600' : 'bg-blue-600',
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  private static getGeminiModels(): Array<{ id: string; name: string; provider: string; color: string }> {
+    if (!process.env.AI_API_KEY) return [];
+
+    return [
+      { id: 'gemini-pro', name: 'Gemini 1.0 Pro', provider: 'Google', color: 'bg-violet-500' },
+      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', provider: 'Google', color: 'bg-blue-500' },
+      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', provider: 'Google', color: 'bg-indigo-600' },
+    ];
   }
 }

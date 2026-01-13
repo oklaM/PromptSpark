@@ -12,9 +12,13 @@
     "build:frontend": "npm run build -w frontend",
     "build:extension": "npm run build -w extension",
     "start": "npm start -w backend",
-    "test": "npm test -w backend && npm test -w frontend",
+    "test": "npm run test:backend && npm run test:frontend",
     "test:backend": "npm test -w backend",
     "test:frontend": "npm test -w frontend",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:headed": "playwright test --headed",
     "test:watch": "concurrently \"npm run test:watch -w backend\" \"npm run test:watch -w frontend\"",
     "test:coverage": "npm run test:coverage -w backend && npm run test:coverage -w frontend",
     "lint": "npm run lint -w backend && npm run lint -w frontend",
@@ -26,9 +30,10 @@
     "extension"
   ],
   "devDependencies": {
-    "concurrently": "^8.2.2",
     "@commitlint/cli": "^19.6.1",
     "@commitlint/config-conventional": "^19.6.0",
+    "@playwright/test": "^1.57.0",
+    "concurrently": "^8.2.2",
     "husky": "^9.1.7",
     "lint-staged": "^15.2.11"
   },

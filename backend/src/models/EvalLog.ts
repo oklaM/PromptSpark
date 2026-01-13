@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { database } from '../db/database';
+import type { EvalLogRow } from '../types/database';
 
 export interface EvalLog {
   id: string;
@@ -35,12 +36,12 @@ export class EvalLogModel {
       `INSERT INTO eval_logs (id, "promptId", "modelId", variables, content, output, score, latency, tokens, "createdAt")
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        id, 
-        data.promptId || null, 
-        data.modelId, 
-        variablesStr, 
-        data.content, 
-        data.output || '', 
+        id,
+        data.promptId || null,
+        data.modelId,
+        variablesStr,
+        data.content,
+        data.output || '',
         data.score !== undefined ? data.score : null,
         data.latency || 0,
         data.tokens || 0,
@@ -52,34 +53,34 @@ export class EvalLogModel {
   }
 
   static async getById(id: string): Promise<EvalLog | null> {
-    const row = await database.get(`SELECT * FROM eval_logs WHERE id = ?`, [id]);
+    const row = await database.get<EvalLogRow>(`SELECT * FROM eval_logs WHERE id = ?`, [id]);
     if (!row) return null;
     return this.mapRow(row);
   }
 
   static async getByPromptId(promptId: string, limit: number = 50): Promise<EvalLog[]> {
-    const rows = await database.all(
+    const rows = await database.all<EvalLogRow>(
       `SELECT * FROM eval_logs WHERE "promptId" = ? ORDER BY "createdAt" DESC LIMIT ?`,
       [promptId, limit]
     );
-    return rows.map(this.mapRow);
+    return rows.map(row => this.mapRow(row));
   }
 
   static async getStats(promptId: string): Promise<{ total: number, good: number, bad: number, passRate: number }> {
-    const row = await database.get(
-      `SELECT 
+    const row = await database.get<{ total: string, good: string, bad: string }>(
+      `SELECT
          COUNT(*) as total,
          SUM(CASE WHEN score = 1 THEN 1 ELSE 0 END) as good,
          SUM(CASE WHEN score = 0 THEN 1 ELSE 0 END) as bad
-       FROM eval_logs 
+       FROM eval_logs
        WHERE "promptId" = ? AND score IS NOT NULL`,
       [promptId]
     );
-    
-    const total = row.total || 0;
-    const good = row.good || 0;
-    const bad = row.bad || 0;
-    
+
+    const total = parseInt(row?.total || '0');
+    const good = parseInt(row?.good || '0');
+    const bad = parseInt(row?.bad || '0');
+
     return {
       total,
       good,
@@ -88,11 +89,18 @@ export class EvalLogModel {
     };
   }
 
-  private static mapRow(row: any): EvalLog {
+  private static mapRow(row: EvalLogRow): EvalLog {
     return {
-      ...row,
-      variables: row.variables ? JSON.parse(row.variables) : {},
-      score: row.score // SQLite returns null as null, int as int
+      id: row.id,
+      promptId: row.promptid,
+      modelId: row.modelid,
+      variables: row.variables ? JSON.parse(row.variables) : undefined,
+      content: row.content,
+      output: row.output,
+      score: row.score,
+      latency: row.latency,
+      tokens: row.tokens,
+      createdAt: row.createdat
     };
   }
 }

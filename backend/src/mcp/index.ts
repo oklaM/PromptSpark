@@ -11,9 +11,9 @@ import {
   ErrorCode,
   McpError
 } from "@modelcontextprotocol/sdk/types.js";
-import { z } from "zod";
 import { database } from "../db/database.js";
 import { AiService } from "../services/aiService.js";
+import type { PromptRow, CommentRow } from "../types/database.js";
 
 console.error("Starting PromptSpark MCP Server...");
 
@@ -44,7 +44,7 @@ async function main() {
   // --- Resources ---
 
   server.setRequestHandler(ListResourcesRequestSchema, async () => {
-    const prompts = await database.all('SELECT id, title, description FROM prompts ORDER BY "updatedAt" DESC LIMIT 50');
+    const prompts = await database.all<Pick<PromptRow, 'id' | 'title' | 'description'>>('SELECT id, title, description FROM prompts ORDER BY "updatedAt" DESC LIMIT 50');
     return {
       resources: prompts.map((p) => ({
         uri: `promptspark://prompts/${p.id}`,
@@ -58,7 +58,7 @@ async function main() {
   server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     const url = new URL(request.params.uri);
     const id = url.pathname.replace(/^\//, "");
-    const prompt = await database.get("SELECT * FROM prompts WHERE id = $1", [id]);
+    const prompt = await database.get<PromptRow>("SELECT * FROM prompts WHERE id = $1", [id]);
 
     if (!prompt) {
       throw new McpError(ErrorCode.InvalidRequest, `Prompt not found: ${id}`);
@@ -78,7 +78,7 @@ async function main() {
   // --- Prompts (MCP "Prompts" capability) ---
 
   server.setRequestHandler(ListPromptsRequestSchema, async () => {
-    const prompts = await database.all('SELECT id, title, description FROM prompts LIMIT 20');
+    const prompts = await database.all<Pick<PromptRow, 'id' | 'title' | 'description'>>('SELECT id, title, description FROM prompts LIMIT 20');
     return {
       prompts: prompts.map((p) => ({
         name: p.title,
@@ -96,7 +96,7 @@ async function main() {
 
   server.setRequestHandler(GetPromptRequestSchema, async (request) => {
     const title = request.params.name;
-    const prompt = await database.get("SELECT * FROM prompts WHERE title = $1", [title]);
+    const prompt = await database.get<PromptRow>("SELECT * FROM prompts WHERE title = $1", [title]);
 
     if (!prompt) {
       throw new McpError(ErrorCode.InvalidRequest, `Prompt template not found: ${title}`);
@@ -189,7 +189,7 @@ async function main() {
 
         // 1. Fetch candidates (Last 50 prompts to keep context reasonable)
         // In a real vector system, we'd fetch top 20 nearest neighbors.
-        const candidates = await database.all('SELECT id, title, description, content FROM prompts ORDER BY "updatedAt" DESC LIMIT 50');
+        const candidates = await database.all<Pick<PromptRow, 'id' | 'title' | 'description' | 'content'>>('SELECT id, title, description, content FROM prompts ORDER BY "updatedAt" DESC LIMIT 50');
 
         if (candidates.length === 0) {
           return {
@@ -200,7 +200,7 @@ async function main() {
         // 2. Ask AI to pick the best one
         // We'll create a lightweight index for the LLM
         const index = candidates.map(c => ({ id: c.id, title: c.title, description: c.description || c.content.substring(0, 100) }));
-        
+
         const selectionPrompt = `
 You are an intelligent librarian for a prompt library.
 User Task: "${task}"

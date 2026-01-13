@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { database } from '../db/database';
+import type { PromptRow } from '../types/database';
 
 export interface PromptVersion {
   id: string;
@@ -15,21 +16,44 @@ export interface PromptVersion {
   createdAt: string;
 }
 
+interface PromptHistoryRow {
+  id: string;
+  promptid: string;
+  version: number;
+  title: string;
+  description: string;
+  content: string;
+  category: string;
+  tags: string;
+  changedby: string;
+  changelog?: string;
+  createdat: string;
+}
+
 export class PromptVersionModel {
   static async getHistory(promptId: string): Promise<PromptVersion[]> {
-    const rows = await database.all(
+    const rows = await database.all<PromptHistoryRow>(
       `SELECT * FROM prompt_history WHERE "promptId" = ? ORDER BY version DESC`,
       [promptId]
     );
 
     return rows.map(row => ({
-      ...row,
-      tags: row.tags ? JSON.parse(row.tags) : []
+      id: row.id,
+      promptId: row.promptid,
+      version: row.version,
+      title: row.title,
+      description: row.description,
+      content: row.content,
+      category: row.category,
+      tags: row.tags ? JSON.parse(row.tags) : [],
+      changedBy: row.changedby,
+      changeLog: row.changelog || '',
+      createdAt: row.createdat
     }));
   }
 
   static async getVersion(promptId: string, version: number): Promise<PromptVersion | null> {
-    const row = await database.get(
+    const row = await database.get<PromptHistoryRow>(
       `SELECT * FROM prompt_history WHERE "promptId" = ? AND version = ?`,
       [promptId, version]
     );
@@ -37,8 +61,17 @@ export class PromptVersionModel {
     if (!row) return null;
 
     return {
-      ...row,
-      tags: row.tags ? JSON.parse(row.tags) : []
+      id: row.id,
+      promptId: row.promptid,
+      version: row.version,
+      title: row.title,
+      description: row.description,
+      content: row.content,
+      category: row.category,
+      tags: row.tags ? JSON.parse(row.tags) : [],
+      changedBy: row.changedby,
+      changeLog: row.changelog || '',
+      createdAt: row.createdat
     };
   }
 

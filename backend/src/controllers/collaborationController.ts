@@ -6,9 +6,9 @@
 import { Request, Response } from 'express';
 import { database } from '../db/database';
 import { v4 as uuidv4 } from 'uuid';
-import { Permission, PERMISSION_LEVELS } from '../models/Permission';
-import { Comment, Discussion } from '../models/Comment';
-import { Rating, PromptStats } from '../models/Rating';
+import { PERMISSION_LEVELS } from '../models/Permission';
+import { PromptStats } from '../models/Rating';
+import type { PermissionRow, CommentRow, RatingRow } from '../types/database';
 
 // ========== 权限管理接口 ==========
 
@@ -18,7 +18,7 @@ export const grantPermission = async (req: Request, res: Response) => {
     const currentUserId = (req as any).user?.id;
 
     // 验证权限
-    const ownerPerm = await database.get(
+    const ownerPerm = await database.get<PermissionRow>(
       'SELECT * FROM permissions WHERE "promptId" = ? AND "userId" = ? AND role = ?',
       [promptId, currentUserId, 'owner']
     );
@@ -35,8 +35,8 @@ export const grantPermission = async (req: Request, res: Response) => {
     const now = new Date().toISOString();
 
     await database.run(
-      `INSERT INTO permissions 
-       (id, "promptId", "userId", role, "grantedBy", "grantedAt") 
+      `INSERT INTO permissions
+       (id, "promptId", "userId", role, "grantedBy", "grantedAt")
        VALUES (?, ?, ?, ?, ?, ?)
        ON CONFLICT ("promptId", "userId") DO UPDATE SET
        role = excluded.role,
@@ -58,7 +58,7 @@ export const revokePermission = async (req: Request, res: Response) => {
     const { permissionId } = req.params;
     const currentUserId = (req as any).user?.id;
 
-    const permission = await database.get(
+    const permission = await database.get<PermissionRow>(
       'SELECT * FROM permissions WHERE id = ?',
       [permissionId]
     );
@@ -67,9 +67,9 @@ export const revokePermission = async (req: Request, res: Response) => {
       return res.status(404).json({ error: '权限不存在' });
     }
 
-    const ownerPerm = await database.get(
+    const ownerPerm = await database.get<PermissionRow>(
       'SELECT * FROM permissions WHERE "promptId" = ? AND "userId" = ? AND role = ?',
-      [permission.promptId, currentUserId, 'owner']
+      [permission.promptid, currentUserId, 'owner']
     );
 
     if (!ownerPerm) {
@@ -113,8 +113,8 @@ export const checkUserPermission = async (req: Request, res: Response) => {
     // allow passing userId via params for tests/legacy routes: /check-permission/:promptId/:userId
     const userId = (req.params as any).userId || (req as any).user?.id;
 
-    const permission = await database.get(
-      `SELECT * FROM permissions 
+    const permission = await database.get<PermissionRow>(
+      `SELECT * FROM permissions
        WHERE "promptId" = ? AND "userId" = ? AND "revokedAt" IS NULL`,
       [promptId, userId]
     );
@@ -220,7 +220,7 @@ export const deleteComment = async (req: Request, res: Response) => {
     const { commentId } = req.params;
     const userId = (req as any).user?.id;
 
-    const comment = await database.get(
+    const comment = await database.get<CommentRow>(
       'SELECT * FROM comments WHERE id = ?',
       [commentId]
     );
@@ -229,7 +229,7 @@ export const deleteComment = async (req: Request, res: Response) => {
       return res.status(404).json({ error: '评论不存在' });
     }
 
-    if (comment.userId !== userId) {
+    if (comment.userid !== userId) {
       return res.status(403).json({ error: '无权删除他人评论' });
     }
 
@@ -406,7 +406,7 @@ export const getPromptStats = async (req: Request, res: Response) => {
   try {
     const { promptId } = req.params;
 
-    const ratings = await database.all(
+    const ratings = await database.all<RatingRow>(
       `SELECT * FROM ratings WHERE "promptId" = ?`,
       [promptId]
     );
@@ -431,8 +431,11 @@ export const getPromptStats = async (req: Request, res: Response) => {
     let totalRelevance = 0;
 
     ratings.forEach((rating) => {
-      distribution[rating.score as 1 | 2 | 3 | 4 | 5]++;
-      totalScore += rating.score;
+      const score = rating.overall || 0;
+      if (score >= 1 && score <= 5) {
+        distribution[score as 1 | 2 | 3 | 4 | 5]++;
+      }
+      totalScore += score;
       totalHelpfulness += rating.helpfulness || 0;
       totalAccuracy += rating.accuracy || 0;
       totalRelevance += rating.relevance || 0;
@@ -461,7 +464,7 @@ export const deleteRating = async (req: Request, res: Response) => {
     const { ratingId } = req.params;
     const userId = (req as any).user?.id;
 
-    const rating = await database.get(
+    const rating = await database.get<RatingRow>(
       'SELECT * FROM ratings WHERE id = ?',
       [ratingId]
     );
@@ -470,7 +473,7 @@ export const deleteRating = async (req: Request, res: Response) => {
       return res.status(404).json({ error: '评分不存在' });
     }
 
-    if (rating.userId !== userId) {
+    if (rating.userid !== userId) {
       return res.status(403).json({ error: '无权删除他人评分' });
     }
 

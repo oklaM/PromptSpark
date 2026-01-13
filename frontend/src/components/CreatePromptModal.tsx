@@ -108,12 +108,11 @@ export function CreatePromptModal({ isOpen, onClose, onSuccess, initialData }: C
       onClick={() => handleSmartAnalyze(field)}
       disabled={isAnalyzing || (!formData.content && !formData.title && !formData.description)}
       className={`text-purple-600 hover:text-purple-700 p-1 rounded hover:bg-purple-50 transition-colors ${className}`}
-      title={`AI 生成${field === 'title' ? '标题' : field === 'description' ? '描述' : field === 'tags' ? '标签' : '分类'}`}
+      title={`AI 生成${field === 'title' ? '标题' : field === 'description' ? '描述' : field === 'content' ? '内容' : field === 'tags' ? '标签' : '分类'}`}
     >
       <Wand2 className={`w-4 h-4 ${isAnalyzing ? 'animate-pulse' : ''}`} />
     </button>
   );
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

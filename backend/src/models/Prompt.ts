@@ -1,5 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { database } from '../db/database';
+import { cacheService, CacheKeys } from '../services/cacheService';
+import type { PromptRow, TagRow } from '../types/database';
 
 export interface Prompt {
   id: string;
@@ -56,59 +58,89 @@ export class PromptModel {
   }
 
   static async getById(id: string): Promise<Prompt | null> {
-    const prompt = await database.get(
-      `SELECT * FROM prompts WHERE id = ? AND "deletedAt" IS NULL`,
+    // Check cache first
+    const cacheKey = CacheKeys.PROMPT_BY_ID(id);
+    const cached = cacheService.get<Prompt>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const prompt = await database.get<PromptRow>(
+      `SELECT * FROM prompts WHERE id = $1 AND "deletedAt" IS NULL`,
       [id]
     );
 
     if (!prompt) return null;
 
-    const tags = await database.all(
+    const tags = await database.all<Pick<TagRow, 'name'>>(
       `SELECT t.name FROM tags t
        JOIN prompt_tags pt ON t.id = pt."tagId"
-       WHERE pt."promptId" = ?`,
+       WHERE pt."promptId" = $1`,
       [id]
     );
 
-    return {
-      ...prompt,
-      tags: tags.map(t => t.name),
-      isPublic: Boolean(prompt.isPublic),
+    const result: Prompt = {
+      id: prompt.id,
+      title: prompt.title,
+      description: prompt.description || '',
+      content: prompt.content,
+      category: prompt.category || '',
+      author: prompt.author || '',
+      isPublic: Boolean(prompt.ispublic),
+      views: prompt.views,
+      likes: prompt.likes,
+      tags: tags.map((t) => t.name),
+      createdAt: prompt.createdat,
+      updatedAt: prompt.updatedat,
       metadata: typeof prompt.metadata === 'string' ? JSON.parse(prompt.metadata) : prompt.metadata
     };
+
+    // Cache for 5 minutes
+    cacheService.set(cacheKey, result, 5 * 60 * 1000);
+
+    return result;
   }
 
   static async getAll(page: number = 1, limit: number = 20): Promise<{data: Prompt[], total: number}> {
     const offset = (page - 1) * limit;
 
-    const total = await database.get(
+    const total = await database.get<{ count: string }>(
       `SELECT COUNT(*) as count FROM prompts WHERE "deletedAt" IS NULL`
     );
 
-    const prompts = await database.all(
-      `SELECT * FROM prompts WHERE "deletedAt" IS NULL ORDER BY "createdAt" DESC LIMIT ? OFFSET ?`,
+    const prompts = await database.all<PromptRow>(
+      `SELECT * FROM prompts WHERE "deletedAt" IS NULL ORDER BY "createdAt" DESC LIMIT $1 OFFSET $2`,
       [limit, offset]
     );
 
     // 获取每个提示词的标签
     const promptsWithTags = await Promise.all(
       prompts.map(async (prompt) => {
-        const tags = await database.all(
+        const tags = await database.all<Pick<TagRow, 'name'>>(
           `SELECT t.name FROM tags t
            JOIN prompt_tags pt ON t.id = pt."tagId"
-           WHERE pt."promptId" = ?`,
+           WHERE pt."promptId" = $1`,
           [prompt.id]
         );
         return {
-          ...prompt,
-          tags: tags.map(t => t.name),
-          isPublic: Boolean(prompt.isPublic),
+          id: prompt.id,
+          title: prompt.title,
+          description: prompt.description || '',
+          content: prompt.content,
+          category: prompt.category || '',
+          author: prompt.author || '',
+          isPublic: Boolean(prompt.ispublic),
+          views: prompt.views,
+          likes: prompt.likes,
+          tags: tags.map((t) => t.name),
+          createdAt: prompt.createdat,
+          updatedAt: prompt.updatedat,
           metadata: typeof prompt.metadata === 'string' ? JSON.parse(prompt.metadata) : prompt.metadata
         };
       })
     );
 
-    return { data: promptsWithTags, total: total.count };
+    return { data: promptsWithTags, total: parseInt(total?.count || '0') };
   }
 
   static async update(id: string, data: Partial<CreatePromptDTO>, changedBy?: string): Promise<Prompt> {
@@ -119,37 +151,43 @@ export class PromptModel {
       throw new Error('Prompt not found');
     }
 
+    // Invalidate cache for this prompt
+    cacheService.delete(CacheKeys.PROMPT_BY_ID(id));
+    cacheService.clearPattern(`prompt:list:*`);
+    cacheService.clearPattern(`prompt:search:*`);
+
     const updateFields: string[] = [];
     const updateValues: any[] = [];
+    let paramIndex = 1;
 
     if (data.title) {
-      updateFields.push('title = ?');
+      updateFields.push(`title = $${paramIndex++}`);
       updateValues.push(data.title);
     }
     if (data.description !== undefined) {
-      updateFields.push('description = ?');
+      updateFields.push(`description = $${paramIndex++}`);
       updateValues.push(data.description);
     }
     if (data.content) {
-      updateFields.push('content = ?');
+      updateFields.push(`content = $${paramIndex++}`);
       updateValues.push(data.content);
     }
     if (data.category) {
-      updateFields.push('category = ?');
+      updateFields.push(`category = $${paramIndex++}`);
       updateValues.push(data.category);
     }
     if ((data as any).isPublic !== undefined) {
-      updateFields.push('"isPublic" = ?');
+      updateFields.push(`"isPublic" = $${paramIndex++}`);
       updateValues.push((data as any).isPublic ? 1 : 0);
     }
 
-    updateFields.push('"updatedAt" = ?');
+    updateFields.push(`"updatedAt" = $${paramIndex++}`);
     updateValues.push(now);
     updateValues.push(id);
 
     if (updateFields.length > 1) {
       await database.run(
-        `UPDATE prompts SET ${updateFields.join(', ')} WHERE id = ?`,
+        `UPDATE prompts SET ${updateFields.join(', ')} WHERE id = $${paramIndex}`,
         updateValues
       );
     }
@@ -167,11 +205,11 @@ export class PromptModel {
     // Create new version history if content or core metadata changed
     // We assume any update via this method triggers a version if valuable fields changed.
     // Let's just do it for now.
-    const history = await database.get(
+    const history = await database.get<{ maxversion: string }>(
       `SELECT MAX(version) as "maxVersion" FROM prompt_history WHERE "promptId" = ?`,
       [id]
     );
-    const newVersion = (history.maxVersion || 0) + 1;
+    const newVersion = parseInt(history?.maxversion || '0') + 1;
     
     // Construct full state for history
     const newState = {
@@ -193,40 +231,184 @@ export class PromptModel {
 
   static async delete(id: string): Promise<void> {
     const now = new Date().toISOString();
+
+    // Invalidate cache for this prompt
+    cacheService.delete(CacheKeys.PROMPT_BY_ID(id));
+    cacheService.clearPattern(`prompt:list:*`);
+    cacheService.clearPattern(`prompt:search:*`);
+
     await database.run(
-      `UPDATE prompts SET "deletedAt" = ? WHERE id = ?`,
+      `UPDATE prompts SET "deletedAt" = $1 WHERE id = $2`,
       [now, id]
     );
   }
 
-  static async search(query: string, category?: string, tags?: string[]): Promise<Prompt[]> {
-    let sql = `SELECT DISTINCT p.* FROM prompts p
-               LEFT JOIN prompt_tags pt ON p.id = pt."promptId"
-               LEFT JOIN tags t ON pt."tagId" = t.id
-               WHERE p."deletedAt" IS NULL AND (p.title LIKE ? OR p.description LIKE ? OR p.content LIKE ?)`;
-    const params: any[] = [`%${query}%`, `%${query}%`, `%${query}%`];
+  static async search(
+    query: string,
+    category?: string,
+    tags?: string[],
+    page: number = 1,
+    limit: number = 20
+  ): Promise<{ data: Prompt[]; total: number }> {
+    const offset = (page - 1) * limit;
+
+    // Count query
+    let countSql = `SELECT COUNT(DISTINCT p.id) as count FROM prompts p
+                    LEFT JOIN prompt_tags pt ON p.id = pt."promptId"
+                    LEFT JOIN tags t ON pt."tagId" = t.id
+                    WHERE p."deletedAt" IS NULL AND (p.title LIKE $1 OR p.description LIKE $2 OR p.content LIKE $3)`;
+    const countParams: any[] = [`%${query}%`, `%${query}%`, `%${query}%`];
 
     if (category) {
-      sql += ` AND p.category = ?`;
-      params.push(category);
+      countSql += ` AND p.category = $${countParams.length + 1}`;
+      countParams.push(category);
     }
 
     if (tags && tags.length > 0) {
-      sql += ` AND t.name IN (${tags.map(() => '?').join(',')})`;
-      params.push(...tags);
+      countSql += ` AND t.name IN (${tags.map((_, i) => `$${countParams.length + 1 + i}`).join(',')})`;
+      countParams.push(...tags);
     }
 
-    sql += ` ORDER BY p."createdAt" DESC`;
+    const totalResult = await database.get<{ count: string }>(countSql, countParams);
+    const total = parseInt(totalResult?.count || '0');
 
-    const results = await database.all(sql, params);
+    // Data query
+    let dataSql = `SELECT DISTINCT p.* FROM prompts p
+                   LEFT JOIN prompt_tags pt ON p.id = pt."promptId"
+                   LEFT JOIN tags t ON pt."tagId" = t.id
+                   WHERE p."deletedAt" IS NULL AND (p.title LIKE $1 OR p.description LIKE $2 OR p.content LIKE $3)`;
+    const dataParams: any[] = [`%${query}%`, `%${query}%`, `%${query}%`];
 
-    return Promise.all(
+    if (category) {
+      dataSql += ` AND p.category = $${dataParams.length + 1}`;
+      dataParams.push(category);
+    }
+
+    if (tags && tags.length > 0) {
+      dataSql += ` AND t.name IN (${tags.map((_, i) => `$${dataParams.length + 1 + i}`).join(',')})`;
+      dataParams.push(...tags);
+    }
+
+    dataSql += ` ORDER BY p."createdAt" DESC LIMIT $${dataParams.length + 1} OFFSET $${dataParams.length + 2}`;
+    dataParams.push(limit, offset);
+
+    const results = await database.all<PromptRow>(dataSql, dataParams);
+
+    const data = await Promise.all(
       results.map(r => this.getById(r.id))
     ).then(prompts => prompts.filter((p): p is Prompt => p !== null));
+
+    return { data, total };
+  }
+
+  /**
+   * Advanced search with metadata filtering
+   * Allows searching by model, seed, and other Civitai parameters stored in metadata
+   */
+  static async advancedSearch(
+    filters: {
+      query?: string;
+      category?: string;
+      tags?: string[];
+      model?: string;
+      sampler?: string;
+      minSeed?: number;
+      maxSeed?: number;
+      author?: string;
+      isPublic?: boolean;
+    },
+    page: number = 1,
+    limit: number = 20
+  ): Promise<{ data: Prompt[]; total: number }> {
+    const offset = (page - 1) * limit;
+    const conditions: string[] = [];
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    // Base condition - no deleted prompts
+    conditions.push('p."deletedAt" IS NULL');
+
+    // Text search (title, description, content)
+    if (filters.query) {
+      conditions.push(`(p.title LIKE $${paramIndex++} OR p.description LIKE $${paramIndex++} OR p.content LIKE $${paramIndex++})`);
+      params.push(`%${filters.query}%`, `%${filters.query}%`, `%${filters.query}%`);
+    }
+
+    // Category filter
+    if (filters.category) {
+      conditions.push(`p.category = $${paramIndex++}`);
+      params.push(filters.category);
+    }
+
+    // Tags filter
+    if (filters.tags && filters.tags.length > 0) {
+      conditions.push(`t.name IN (${filters.tags.map(() => `$${paramIndex++}`).join(',')})`);
+      params.push(...filters.tags);
+    }
+
+    // Model filter (from metadata)
+    if (filters.model) {
+      conditions.push(`p.metadata->>'Model' LIKE $${paramIndex++}`);
+      params.push(`%${filters.model}%`);
+    }
+
+    // Sampler filter (from metadata)
+    if (filters.sampler) {
+      conditions.push(`p.metadata->>'Sampler' LIKE $${paramIndex++}`);
+      params.push(`%${filters.sampler}%`);
+    }
+
+    // Seed range filter (from metadata)
+    if (filters.minSeed !== undefined) {
+      conditions.push(`CAST(p.metadata->>'Seed' AS INTEGER) >= $${paramIndex++}`);
+      params.push(filters.minSeed);
+    }
+
+    if (filters.maxSeed !== undefined) {
+      conditions.push(`CAST(p.metadata->>'Seed' AS INTEGER) <= $${paramIndex++}`);
+      params.push(filters.maxSeed);
+    }
+
+    // Author filter
+    if (filters.author) {
+      conditions.push(`p.author = $${paramIndex++}`);
+      params.push(filters.author);
+    }
+
+    // Public/private filter
+    if (filters.isPublic !== undefined) {
+      conditions.push(`p."isPublic" = $${paramIndex++}`);
+      params.push(filters.isPublic);
+    }
+
+    // Count query
+    const countSql = `SELECT COUNT(DISTINCT p.id) as count FROM prompts p
+                    LEFT JOIN prompt_tags pt ON p.id = pt."promptId"
+                    LEFT JOIN tags t ON pt."tagId" = t.id
+                    WHERE ${conditions.join(' AND ')}`;
+
+    const totalResult = await database.get<{ count: string }>(countSql, params);
+    const total = parseInt(totalResult?.count || '0');
+
+    // Data query
+    const dataSql = `SELECT DISTINCT p.* FROM prompts p
+                   LEFT JOIN prompt_tags pt ON p.id = pt."promptId"
+                   LEFT JOIN tags t ON pt."tagId" = t.id
+                   WHERE ${conditions.join(' AND ')}
+                   ORDER BY p."createdAt" DESC LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
+    params.push(limit, offset);
+
+    const results = await database.all<PromptRow>(dataSql, params);
+
+    const data = await Promise.all(
+      results.map(r => this.getById(r.id))
+    ).then(prompts => prompts.filter((p): p is Prompt => p !== null));
+
+    return { data, total };
   }
 
   private static async addTag(promptId: string, tagName: string): Promise<void> {
-    const tag = await database.get(`SELECT id FROM tags WHERE name = ?`, [tagName]);
+    const tag = await database.get<Pick<TagRow, 'id'>>(`SELECT id FROM tags WHERE name = ?`, [tagName]);
 
     let tagId = tag?.id;
     if (!tagId) {

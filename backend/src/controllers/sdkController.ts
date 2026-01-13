@@ -1,9 +1,10 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { ApiTokenModel } from '../models/ApiToken';
 import { PromptModel } from '../models/Prompt';
 import { database } from '../db/database';
 import { SdkRequest } from '../middleware/sdkAuthMiddleware';
 import { AuthRequest } from '../middleware/authMiddleware';
+import type { UserRow } from '../types/database';
 
 export class SdkController {
   // --- Token Management ---
@@ -68,7 +69,7 @@ export class SdkController {
 
       // Check access
       // 1. Get user details for username check (legacy author check)
-      const user = await database.get('SELECT username FROM users WHERE id = ?', [userId]);
+      const user = await database.get<Pick<UserRow, 'username'>>('SELECT username FROM users WHERE id = ?', [userId]);
       if (!user) {
         res.status(401).json({ success: false, message: 'Invalid token user' });
         return;
@@ -84,7 +85,7 @@ export class SdkController {
         `SELECT * FROM permissions WHERE promptId = ? AND userId = ? AND revokedAt IS NULL`,
         [key, userId]
       );
-      
+
       if (perm) {
         res.json({ success: true, data: prompt });
         return;

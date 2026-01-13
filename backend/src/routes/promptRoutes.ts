@@ -9,6 +9,7 @@ const router = Router();
 router.post('/prompts', ensureAuth, checkStorageQuota, PromptController.create);
 router.get('/prompts', PromptController.getAll);
 router.get('/prompts/search', PromptController.search);
+router.get('/prompts/advanced-search', PromptController.advancedSearch);
 router.get('/prompts/export', PromptController.exportPrompts);
 router.get('/prompts/:id', PromptController.getById);
 router.put('/prompts/:id', ensureAuth, PromptController.update);

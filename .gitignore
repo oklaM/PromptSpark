@@ -39,6 +39,8 @@ data/
 # Testing
 coverage/
 .nyc_output/
+test-results/
+playwright-report/
 
 # Temporary
 tmp/
@@ -50,7 +52,7 @@ Thumbs.db
 .AppleDouble
 .LSOverlay
 
-# Python (if applicable)
+# Python
 __pycache__/
 *.py[cod]
 *$py.class

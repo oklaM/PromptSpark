@@ -21,20 +21,33 @@ const mocks = vi.hoisted(() => {
     if (sql.startsWith('UPDATE prompts SET')) {
       const id = params[params.length - 1];
       const promptIndex = promptsStore.findIndex(p => p.id === id);
-      
+
       if (promptIndex !== -1) {
-        if (sql.includes('"deletedAt" = ?')) {
+        if (sql.includes('"deletedAt" =')) {
            promptsStore[promptIndex].deletedAt = params[0];
         } else if (sql.includes('views = views + 1')) {
            promptsStore[promptIndex].views += 1;
-        } else if (sql.includes('title = ?')) {
+        } else if (sql.includes('title =')) {
            // Basic update simulation for title
            // In a real generic update, we'd map fields. Here we just know the test case.
            promptsStore[promptIndex].title = params[0];
+           promptsStore[promptIndex].updatedAt = new Date().toISOString();
         }
         return { changes: 1 };
       }
       return { changes: 0 };
+    }
+
+    if (sql.startsWith('INSERT INTO tags')) {
+      const [id, name] = params;
+      tagsStore.push({ id, name, count: 0 });
+      return { changes: 1 };
+    }
+
+    if (sql.startsWith('INSERT INTO prompt_tags')) {
+      const [id, promptId, tagId] = params;
+      promptTagsStore.push({ id, promptId, tagId });
+      return { changes: 1 };
     }
 
     if (sql.startsWith('INSERT INTO prompt_history')) {
@@ -52,19 +65,33 @@ const mocks = vi.hoisted(() => {
   });
 
   const get = vi.fn().mockImplementation(async (sql: string, params: any[]) => {
-    if (sql.includes('FROM prompts WHERE id = ?')) {
+    // Handle both ? and $1 style placeholders
+    if (sql.includes('FROM prompts WHERE') && sql.includes('id =')) {
       const id = params[0];
       const p = promptsStore.find(p => p.id === id);
       if (p && p.deletedAt) return null;
       return p || undefined;
     }
-    
-    if (sql.includes('FROM tags WHERE name = ?')) {
+
+    if (sql.includes('FROM tags WHERE') && sql.includes('name =')) {
       return tagsStore.find(t => t.name === params[0]);
     }
-    
+
     if (sql.includes('COUNT(*) as count FROM prompts')) {
        return { count: promptsStore.filter(p => !p.deletedAt).length };
+    }
+
+    if (sql.includes('COUNT(DISTINCT p.id) as count FROM prompts')) {
+      // Handle search count query
+      const searchTerm = params[0] || '';
+      const filtered = promptsStore.filter(p =>
+        !p.deletedAt && (
+          p.title?.includes(searchTerm.replace(/%/g, '')) ||
+          p.description?.includes(searchTerm.replace(/%/g, '')) ||
+          p.content?.includes(searchTerm.replace(/%/g, ''))
+        )
+      );
+      return { count: filtered.length };
     }
 
     if (sql.includes('FROM prompt_history')) {
@@ -76,11 +103,36 @@ const mocks = vi.hoisted(() => {
 
   const all = vi.fn().mockImplementation(async (sql: string, params: any[]) => {
     if (sql.includes('SELECT t.name FROM tags')) {
-      return []; 
+      // Return tags for a prompt
+      const promptId = params[0];
+      const tagIds = promptTagsStore.filter(pt => pt.promptId === promptId).map(pt => pt.tagId);
+      return tagsStore.filter(t => tagIds.includes(t.id)).map(t => ({ name: t.name }));
     }
 
-    if (sql.includes('FROM prompts')) {
-        return promptsStore.filter(p => !p.deletedAt);
+    if (sql.includes('SELECT DISTINCT p.* FROM prompts')) {
+      // Handle search data query
+      const searchTerm = params[0] || '';
+      const limit = params[3] || 20;
+      const offset = params[4] || 0;
+
+      const filtered = promptsStore.filter(p =>
+        !p.deletedAt && (
+          p.title?.includes(searchTerm.replace(/%/g, '')) ||
+          p.description?.includes(searchTerm.replace(/%/g, '')) ||
+          p.content?.includes(searchTerm.replace(/%/g, ''))
+        )
+      );
+      return filtered.slice(offset, offset + limit);
+    }
+
+    if (sql.includes('FROM prompts') && sql.includes('"deletedAt" IS NULL')) {
+      const limit = params && params.length > 0 ? params[0] : undefined;
+      const offset = params && params.length > 1 ? params[1] : 0;
+      let results = promptsStore.filter(p => !p.deletedAt);
+      if (limit) {
+        results = results.slice(offset, offset + limit);
+      }
+      return results;
     }
 
     return [];

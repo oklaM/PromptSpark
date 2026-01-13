@@ -1,44 +1,100 @@
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { database } from '../db/database';
 import { SubscriptionModel } from '../models/Subscription';
-import { PromptModel } from '../models/Prompt';
 
-export const checkStorageQuota = async (req: Request, res: Response, next: NextFunction) => {
-  const user = (req as any).user;
-  if (!user) return res.status(401).json({ error: 'Auth required' });
+type AuthenticatedRequest = Request & { user?: { id: string; username: string } };
 
-  const sub = await SubscriptionModel.getByUserId(user.id);
-  const { total } = await PromptModel.getAll(1, 1); // Get total count (inefficient but works for SQLite/Simple PG)
-  
-  // Actually we need total for THIS user
-  const userPrompts = await PromptModel.search('', undefined, []); 
-  const countRes = await database.get('SELECT COUNT(*) as count FROM prompts WHERE author = ? AND "deletedAt" IS NULL', [user.username]);
-  const currentCount = parseInt(countRes?.count || '0');
+interface QuotaResponse {
+  success: false;
+  code: string;
+  message: string;
+  data: {
+    current?: number;
+    used?: number;
+    limit: number;
+    plan: string;
+    resetsAt?: string;
+  };
+}
 
-  if (currentCount >= sub.storageLimit) {
-    return res.status(403).json({
+function requireAuth(req: AuthenticatedRequest, res: Response): req is AuthenticatedRequest & { user: { id: string; username: string } } {
+  if (!req.user) {
+    res.status(401).json({ error: 'Authentication required' });
+    return false;
+  }
+  return true;
+}
+
+function sendQuotaExceeded(res: Response, response: QuotaResponse): void {
+  res.status(403).json(response);
+}
+
+async function getCurrentPromptCount(username: string): Promise<number> {
+  const countRes = await database.get<{ count: string }>(
+    'SELECT COUNT(*) as count FROM prompts WHERE author = $1 AND "deletedAt" IS NULL',
+    [username],
+  );
+  return parseInt(countRes?.count || '0');
+}
+
+export async function checkStorageQuota(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  if (!requireAuth(req, res)) return;
+
+  try {
+    const { id, username } = req.user;
+    const sub = await SubscriptionModel.getByUserId(id);
+    const currentCount = await getCurrentPromptCount(username);
+
+    if (currentCount >= sub.storageLimit) {
+      sendQuotaExceeded(res, {
+        success: false,
+        code: 'QUOTA_EXCEEDED',
+        message: `Storage quota exceeded (${currentCount}/${sub.storageLimit}). Please upgrade to Pro for unlimited storage.`,
+        data: {
+          current: currentCount,
+          limit: sub.storageLimit,
+          plan: sub.plan,
+        },
+      });
+      return;
+    }
+
+    next();
+  } catch {
+    res.status(500).json({
       success: false,
-      code: 'QUOTA_EXCEEDED',
-      message: `存储空间已满 (${currentCount}/${sub.storageLimit})。请升级到 Pro 账户以解锁无限存储。`
+      message: 'Failed to check storage quota',
     });
   }
+}
 
-  next();
-};
+export async function checkAiQuota(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  if (!requireAuth(req, res)) return;
 
-export const checkAiQuota = async (req: Request, res: Response, next: NextFunction) => {
-  const user = (req as any).user;
-  if (!user) return res.status(401).json({ error: 'Auth required' });
+  try {
+    const { id } = req.user;
+    const sub = await SubscriptionModel.getByUserId(id);
 
-  const sub = await SubscriptionModel.getByUserId(user.id);
+    if (sub.aiUsedToday >= sub.aiLimit) {
+      sendQuotaExceeded(res, {
+        success: false,
+        code: 'AI_QUOTA_EXCEEDED',
+        message: `Daily AI quota exceeded (${sub.aiUsedToday}/${sub.aiLimit}). Try again tomorrow or upgrade to Pro.`,
+        data: {
+          used: sub.aiUsedToday,
+          limit: sub.aiLimit,
+          plan: sub.plan,
+          resetsAt: sub.lastResetDate,
+        },
+      });
+      return;
+    }
 
-  if (sub.aiUsedToday >= sub.aiLimit) {
-    return res.status(403).json({
+    next();
+  } catch {
+    res.status(500).json({
       success: false,
-      code: 'AI_QUOTA_EXCEEDED',
-      message: `今日 AI 优化额度已用完 (${sub.aiUsedToday}/${sub.aiLimit})。请明日再试或升级到 Pro 账户。`
+      message: 'Failed to check AI quota',
     });
   }
-
-  next();
-};
+}

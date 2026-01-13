@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { database } from '../db/database';
+import type { UserRow } from '../types/database';
 import 'dotenv/config';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'promptspark_dev_secret';
@@ -16,7 +17,7 @@ export class AuthController {
         return;
       }
 
-      const existing = await database.get(`SELECT id FROM users WHERE username = ? OR email = ?`, [username, email]);
+      const existing = await database.get<Pick<UserRow, 'id'>>(`SELECT id FROM users WHERE username = ? OR email = ?`, [username, email]);
       if (existing) {
         res.status(409).json({ success: false, message: 'User already exists' });
         return;
@@ -47,20 +48,20 @@ export class AuthController {
         return;
       }
 
-      const user = await database.get(`SELECT * FROM users WHERE username = ?`, [username]);
+      const user = await database.get<UserRow>(`SELECT * FROM users WHERE username = ?`, [username]);
       if (!user) {
         res.status(401).json({ success: false, message: 'Invalid credentials' });
         return;
       }
 
-      const valid = await bcrypt.compare(password, user.passwordHash);
+      const valid = await bcrypt.compare(password, user.passwordhash);
       if (!valid) {
         res.status(401).json({ success: false, message: 'Invalid credentials' });
         return;
       }
 
       const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
-      res.json({ success: true, data: { id: user.id, username: user.username, displayName: user.displayName }, token });
+      res.json({ success: true, data: { id: user.id, username: user.username, displayName: user.displayname }, token });
     } catch (error) {
       res.status(500).json({ success: false, message: error instanceof Error ? error.message : 'Login failed' });
     }
